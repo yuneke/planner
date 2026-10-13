@@ -1,0 +1,112 @@
+:root {
+  --bg: #f6f7f9; --card: #fff; --text: #1d2330; --muted: #6b7280; --line: #e3e6eb;
+  --accent: #4f6bff; --danger: #d33;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #111418; --card: #1b1f26; --text: #e6e8ec; --muted: #9aa3af; --line: #2c323c; --accent: #7b8cff; --danger: #ff6b6b; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; font: 15px/1.4 system-ui, sans-serif; background: var(--bg); color: var(--text); }
+button { font: inherit; color: inherit; background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; cursor: pointer; }
+button.primary { background: var(--accent); color: #fff; border-color: transparent; }
+button.danger { color: var(--danger); }
+button.icon { padding: 2px 6px; border: none; background: none; color: var(--muted); }
+button:disabled { opacity: .3; cursor: default; }
+input { font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; }
+input[type=checkbox] { width: 18px; height: 18px; padding: 0; accent-color: var(--accent); flex: none; }
+input[type=color] { padding: 0; width: 44px; height: 32px; }
+.muted { color: var(--muted); }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.grow { flex: 1; }
+h2 { font-size: 16px; margin: 0; }
+.row h2 { flex: 1; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
+
+/* signed-in vs signed-out */
+body:not(.signed-in) header, body:not(.signed-in) .layout { display: none; }
+body.signed-in #auth { display: none; }
+#auth { max-width: 380px; margin: 15vh auto; }
+
+header { position: sticky; top: 0; z-index: 5; background: var(--bg); display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px 16px; border-bottom: 1px solid var(--line); }
+.views button.on { background: var(--accent); color: #fff; border-color: transparent; }
+.nav { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; flex: 1; min-width: 0; }
+h1 { font-size: 18px; margin: 0 8px; flex: 1; min-width: 0; }
+#date { max-width: 150px; }
+@media (max-width: 600px) {
+  .nav { order: 1; flex-basis: 100%; }
+  #signout { margin-left: auto; }
+  h1 { order: -1; flex-basis: 100%; margin: 0; }
+  #date { flex: 1; min-width: 0; }
+}
+
+.layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; padding: 16px; max-width: 1400px; margin: auto; }
+#main, #lists { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+@media (min-width: 1000px) {
+  .layout { grid-template-columns: minmax(0, 1fr) 320px; }
+  #listsBtn { display: none; }
+}
+@media (max-width: 999px) {
+  #lists { display: none; }
+  body.show-lists #lists { display: flex; }
+  body.show-lists #main { display: none; }
+  #listsBtn.on, body.show-lists #listsBtn { background: var(--accent); color: #fff; }
+}
+
+/* day view: tasks above schedule on phone, beside it on wide screens */
+.day { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+@media (min-width: 700px) {
+  .day { grid-template-columns: minmax(0, 1fr) 300px; }
+  .day .sched { grid-column: 1; grid-row: 1; }
+  .day .taskcard { grid-column: 2; grid-row: 1; align-self: start; }
+}
+details > summary { cursor: pointer; }
+
+/* timeline: 1px per minute */
+.timeline { display: grid; grid-template-columns: 44px repeat(var(--n), 1fr); height: 960px; margin-top: 12px; }
+.hours { position: relative; }
+.hour { position: absolute; right: 6px; font-size: 11px; color: var(--muted); transform: translateY(-50%); }
+.col { position: relative; border-left: 1px solid var(--line); background: repeating-linear-gradient(to bottom, var(--line) 0 1px, transparent 1px 60px); user-select: none; }
+.block { position: absolute; padding: 3px 6px; border-radius: 6px; border-left: 4px solid var(--c); background: color-mix(in srgb, var(--c) 25%, var(--card)); outline: 1px solid var(--card); overflow: hidden; font-size: 13px; cursor: pointer; display: flex; flex-wrap: wrap; gap: 0 6px; align-content: flex-start; }
+.block input { width: 14px; height: 14px; margin: 2px 0; }
+.block small { color: var(--muted); width: 100%; }
+.block.done b { text-decoration: line-through; opacity: .6; }
+.ghost { left: 0; right: 0; background: color-mix(in srgb, var(--accent) 30%, transparent); border: none; pointer-events: none; }
+.now { position: absolute; left: 0; right: 0; height: 2px; background: var(--danger); z-index: 2; pointer-events: none; }
+
+/* week */
+.week { overflow-x: auto; }
+.week-head, .week .timeline { min-width: 760px; }
+.week-head { display: grid; grid-template-columns: 44px repeat(7, 1fr); }
+.dayhead { border: none; background: none; display: flex; flex-direction: column; align-items: center; }
+.dayhead small { color: var(--muted); font-size: 11px; }
+.dayhead.today b { color: var(--accent); }
+
+/* month */
+.month { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.dow { text-align: center; color: var(--muted); font-size: 12px; }
+.cell { min-height: 72px; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 6px; text-align: left; }
+.cell.other { opacity: .45; }
+.cell.today .num { color: var(--accent); font-weight: 700; }
+.dots { display: flex; gap: 3px; flex-wrap: wrap; }
+.dots i { width: 8px; height: 8px; border-radius: 50%; }
+.cell small { color: var(--muted); font-size: 11px; }
+
+/* tasks */
+.tasks { list-style: none; margin: 8px 0; padding: 0; }
+.tasks li { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.tasks .grow { cursor: pointer; overflow-wrap: anywhere; }
+.tasks li.done .grow { text-decoration: line-through; color: var(--muted); }
+.add { display: flex; gap: 6px; }
+.add input { flex: 1; min-width: 0; }
+
+/* dialogs */
+dialog { border: 1px solid var(--line); border-radius: 12px; background: var(--card); color: var(--text); width: min(440px, calc(100vw - 32px)); padding: 16px; }
+dialog::backdrop { background: rgb(0 0 0 / .4); }
+dialog form { display: flex; flex-direction: column; gap: 10px; }
+dialog h3 { margin: 0; }
+.field { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+.field > span { font-size: 12px; color: var(--muted); }
+fieldset { border: 1px solid var(--line); border-radius: 8px; display: flex; flex-wrap: wrap; gap: 8px; }
+.check { display: flex; align-items: center; gap: 4px; }
+.swatch { width: 24px; height: 24px; padding: 0; border-radius: 50%; }
