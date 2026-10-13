@@ -1,8 +1,8 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
 
 // Fill these in from Supabase > Project Settings > API (see SETUP.md).
-const SUPABASE_URL = https://afhzsmntoolvpaezhvsu.supabase.co;
-const SUPABASE_ANON_KEY = sb_publishable_IlRHD0lHiu51l_CMXAmZiQ_4i8Dt6tA;
+const SUPABASE_URL = 'https://afhzsmntoolvpaezhvsu.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_IlRHD0lHiu51l_CMXAmZiQ_4i8Dt6tA';
 
 const START = 7 * 60, END = 23 * 60, SNAP = 15; // timeline 07:00–23:00, 1px per minute
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
