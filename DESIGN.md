@@ -183,7 +183,7 @@ Single column on phone, growing to a main column plus a 330px Lists column at 10
 
 Spacing runs on a small set: 6 and 8px inside controls, 12–16px inside cards and between stacked cards, 20px page gutters (14px on phone).
 
-The timeline is literal: 1px per minute, 07:00–23:00 (960px tall), a 46px hour gutter and equal day columns. Hour rules are drawn with a repeating linear gradient every 60px; this is functional geometry, not decoration. Week view scrolls horizontally with a 780px minimum width.
+The timeline runs 09:00–23:00 and stretches to fill whatever height is left (the page never scrolls; positions are percentages of the 14-hour span), with a 46px hour gutter and equal day columns. Hour rules are a repeating linear gradient every 1/14 of the height; this is functional geometry, not decoration. On phones every other hour label is hidden, and blocks shorter than 36px show only their title. Week view scrolls horizontally with a 780px minimum width.
 
 ## Elevation & Depth
 
@@ -204,7 +204,7 @@ Everything is soft and round. Radii step with size: 10px for timeline blocks and
 ## Components
 
 ### Rings Hero (signature)
-Three concentric SVG rings (radii 57/41/25 in a 132px box, 14px stroke, round caps, rotated to start at 12 o'clock): schedule outside, tasks, goals inside. Tracks are the ring colour at 20% opacity. Arcs animate stroke-dashoffset over 1.1s on the house ease from their previous value. A ring that reaches 100% plays one pop (stroke swells to 19px with a soft same-colour glow, 0.7s, after the 1s fill). Beside it: the Display date in two lines, a muted period line, and a "Next:" line with the activity's colour dot.
+Three concentric SVG rings (radii 57/41/25 in a 132-unit viewBox drawn at 104px, 76px on phones, 14px stroke, round caps, rotated to start at 12 o'clock): schedule outside, tasks, goals inside. Tracks are the ring colour at 20% opacity. Arcs animate stroke-dashoffset over 1.1s on the house ease from their previous value. A ring that reaches 100% plays one pop (stroke swells to 19px with a soft same-colour glow, 0.7s, after the 1s fill). Beside it: the Display date in two lines, a muted period line, and a "Next:" line with the activity's colour dot; the legend chips sit at the row's right edge (below it on phones). The day's task list lives in the side column under Inbox and Periods (the Lists tab on phones).
 
 ### Legend Chips
 Fully round Slate Surface chips: 10px colour dot, Archivo 15px count in Bone with tabular figures, muted 13px label. One per ring, under the hero.

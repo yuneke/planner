@@ -4,7 +4,8 @@ import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 const SUPABASE_URL = 'https://afhzsmntoolvpaezhvsu.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_IlRHD0lHiu51l_CMXAmZiQ_4i8Dt6tA';
 
-const START = 7 * 60, END = 23 * 60, SNAP = 15; // timeline 07:00–23:00, 1px per minute
+const START = 9 * 60, END = 23 * 60, SNAP = 15; // timeline 09:00–23:00, stretched to the height available
+const pct = m => `${(m - START) / (END - START) * 100}%`;
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 const sb = SUPABASE_URL.startsWith('http') ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
@@ -155,21 +156,17 @@ function dayView() {
       h('div', {},
         h('h1', { class: 'date' }, fmt(s, { weekday: 'short' }), h('span', {}, fmt(s, { day: 'numeric', month: 'short' }))),
         h('p', { class: 'hero-sub' }, sub),
-        next && h('p', { class: 'hero-next', style: `--c:${next.color}` }, h('i'), `Next: ${next.title} at ${next.start_time.slice(0, 5)}`))),
-    h('div', { class: 'legend' }, counts.map(([cls, label, d, t]) =>
-      h('span', { class: cls }, h('i'), h('b', {}, t ? `${d}/${t}` : '–'), label))),
+        next && h('p', { class: 'hero-next', style: `--c:${next.color}` }, h('i'), `Next: ${next.title} at ${next.start_time.slice(0, 5)}`)),
+      h('div', { class: 'legend' }, counts.map(([cls, label, d, t]) =>
+        h('span', { class: cls }, h('i'), h('b', {}, t ? `${d}/${t}` : '–'), label)))),
     overdueBanner(),
     period && collapsible('strip' + period.id,
       [h('i', { class: 'goal-dot' }), h('h2', {}, `${period.name} goals`), h('span', { class: 'muted' }, progress(goalsOf(period)))],
       taskList(goalsOf(period), { period_id: period.id }), 'card goals-card'),
-    h('div', { class: 'day' },
-      h('section', { class: 'card taskcard' },
-        h('div', { class: 'card-head' }, h('h2', {}, 'Tasks')),
-        taskList(tasks, { date: s })),
-      h('section', { class: 'card sched-card' },
-        h('div', { class: 'card-head' }, h('h2', {}, 'Schedule'),
-          h('button', { class: 'primary', onclick: () => editActivity(null, s) }, icon('plus'), 'Activity')),
-        timeline([s]))),
+    h('section', { class: 'card sched-card fill' },
+      h('div', { class: 'card-head' }, h('h2', {}, 'Schedule'),
+        h('button', { class: 'primary', onclick: () => editActivity(null, s) }, icon('plus'), 'Activity')),
+      timeline([s])),
   ];
 }
 
@@ -251,7 +248,7 @@ function editTask(t) {
 // ---------- timeline ----------
 function timeline(dates) {
   const hours = [];
-  for (let m = START; m < END; m += 60) hours.push(h('div', { class: 'hour', style: `top:${m - START}px` }, toTime(m)));
+  for (let m = START; m < END; m += 60) hours.push(h('div', { class: 'hour', style: `top:${pct(m)}` }, toTime(m)));
   return h('div', { class: 'timeline', style: `--n:${dates.length}` }, h('div', { class: 'hours' }, hours), dates.map(column));
 }
 
@@ -284,7 +281,7 @@ function column(s) {
       const done = isDone(a, s);
       return h('div', {
         class: 'block' + (done ? ' done' : '') + (a === next ? ' next' : ''),
-        style: `top:${top - START}px;height:${bot - top}px;left:${l / n * 100}%;width:${100 / n}%;--c:${a.color};--on:${onColor(a.color)}`,
+        style: `top:${pct(top)};height:${(bot - top) / (END - START) * 100}%;left:${l / n * 100}%;width:${100 / n}%;--c:${a.color};--on:${onColor(a.color)}`,
         onclick: e => { e.stopPropagation(); editActivity(a, s); },
       },
         h('input', { type: 'checkbox', checked: done, title: 'Done', 'aria-label': `Done: ${a.title}`, onclick: e => e.stopPropagation(), onchange: () => toggleDone(a, s) }),
@@ -294,7 +291,7 @@ function column(s) {
     }));
   if (s === today()) {
     const now = new Date(), m = now.getHours() * 60 + now.getMinutes();
-    if (m >= START && m < END) col.append(h('div', { class: 'now', style: `top:${m - START}px` }));
+    if (m >= START && m < END) col.append(h('div', { class: 'now', style: `top:${pct(m)}` }));
   }
   attachCreate(col, s);
   return col;
@@ -304,7 +301,8 @@ function column(s) {
 function attachCreate(col, s) {
   let start = null, ghost = null, ptr = '';
   const minAt = e => {
-    const m = START + Math.round((e.clientY - col.getBoundingClientRect().top) / SNAP) * SNAP;
+    const r = col.getBoundingClientRect();
+    const m = START + Math.round((e.clientY - r.top) / r.height * (END - START) / SNAP) * SNAP;
     return Math.min(END, Math.max(START, m));
   };
   const range = e => [Math.min(start, minAt(e)), Math.max(start, minAt(e))];
@@ -319,8 +317,8 @@ function attachCreate(col, s) {
   col.addEventListener('pointermove', e => {
     if (start == null) return;
     const [a, b] = range(e);
-    ghost.style.top = a - START + 'px';
-    ghost.style.height = b - a + 'px';
+    ghost.style.top = pct(a);
+    ghost.style.height = (b - a) / (END - START) * 100 + '%';
   });
   col.addEventListener('pointerup', e => {
     if (start == null) return;
@@ -390,7 +388,7 @@ function saveActivity(a, s, fd) {
 // ---------- week & month ----------
 function weekView() {
   const days = Array.from({ length: 7 }, (_, i) => addDays(monday(S.cursor), i));
-  return [h('section', { class: 'card week' },
+  return [h('section', { class: 'card week fill' },
     h('div', { class: 'week-head' }, h('div'), days.map(s => {
       const t = tasksOn(s);
       return h('button', { class: 'dayhead' + (s === today() ? ' today' : ''), onclick: () => go('day', s) },
@@ -403,7 +401,7 @@ function weekView() {
 function monthView() {
   const first = S.cursor.slice(0, 8) + '01', month = first.slice(0, 7);
   const cells = Array.from({ length: 42 }, (_, i) => addDays(monday(first), i));
-  return [h('section', { class: 'card month' },
+  return [h('section', { class: 'card month fill' },
     DAYS.map(d => h('div', { class: 'dow' }, d)),
     cells.map(s => {
       const t = tasksOn(s), acts = activitiesOn(s), colors = [...new Set(acts.map(a => a.color))];
@@ -437,6 +435,10 @@ function listsView() {
           h('span', { class: 'muted' }, `${fmt(p.start_date, { day: 'numeric', month: 'short' })} – ${fmt(p.end_date, { day: 'numeric', month: 'short' })} · ${progress(goalsOf(p))} goals`)),
         h('button', { class: 'icon', title: 'Edit period', 'aria-label': `Edit ${p.name}`, onclick: e => { e.preventDefault(); editPeriod(p); } }, icon('edit'))],
       taskList(goalsOf(p), { period_id: p.id }), 'period'))),
+    h('section', { class: 'card taskcard' },
+      h('div', { class: 'card-head' }, h('h2', {}, 'Tasks'),
+        h('span', { class: 'muted' }, S.cursor === today() ? 'Today' : fmt(S.cursor, { weekday: 'short', day: 'numeric', month: 'short' }))),
+      taskList(tasksOn(S.cursor), { date: S.cursor })),
   ];
 }
 
