@@ -14,3 +14,8 @@ db.tasks.push(
   { id: 't5', title: 'Buy new boots', done: false, date: null, period_id: null, position: 5 });
 setTimeout(() => document.dispatchEvent(new Event('visibilitychange')), 200);
 if (location.hash) setTimeout(() => document.querySelector('[data-view=' + location.hash.slice(1) + ']').click(), 600);
+// ?seed&clock pins the clock to 15:00 today, so "what's next" states can be captured.
+if (new URLSearchParams(location.search).has('clock')) {
+  const Real = Date, fixed = new Real(); fixed.setHours(15, 0, 0, 0);
+  globalThis.Date = class extends Real { constructor(...a) { super(...(a.length ? a : [fixed.getTime()])); } static now() { return fixed.getTime(); } };
+}

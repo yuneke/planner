@@ -36,6 +36,41 @@ const isDone = (a, s) => S.done.some(d => d.activity_id === a.id && d.date === s
 const tasksOn = s => S.tasks.filter(t => t.date === s && !t.period_id);
 const goalsOf = p => S.tasks.filter(t => t.period_id === p.id);
 const progress = list => `${list.filter(t => t.done).length}/${list.length}`;
+const activePeriod = s => S.periods.find(p => p.start_date <= s && s <= p.end_date);
+
+// ---------- icons (24px stroke paths) ----------
+const ICONS = {
+  left: 'M15 18l-6-6 6-6', right: 'M9 18l6-6-6-6', check: 'M20 6L9 17l-5-5', x: 'M18 6L6 18M6 6l12 12',
+  up: 'M12 19V5M5 12l7-7 7 7', down: 'M12 5v14M19 12l-7 7-7-7', plus: 'M12 5v14M5 12h14',
+  edit: 'M12 20h9M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4z', forward: 'M5 12h14M13 6l6 6-6 6',
+  day: 'M12 3v1.5M12 19.5V21M3 12h1.5M19.5 12H21M5.6 5.6l1.1 1.1M17.3 17.3l1.1 1.1M5.6 18.4l1.1-1.1M17.3 6.7l1.1-1.1M16 12a4 4 0 11-8 0 4 4 0 018 0z',
+  week: 'M4 5h16a1 1 0 011 1v13a1 1 0 01-1 1H4a1 1 0 01-1-1V6a1 1 0 011-1zM3 10h18M9 10v10M15 10v10',
+  month: 'M4 5h16a1 1 0 011 1v13a1 1 0 01-1 1H4a1 1 0 01-1-1V6a1 1 0 011-1zM3 10h18M8 3v4M16 3v4M8 14h.01M12 14h.01M16 14h.01M8 17h.01M12 17h.01',
+  list: 'M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01',
+  out: 'M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9',
+};
+function icon(name) {
+  const el = document.createElement('span');
+  el.className = 'ic';
+  el.setAttribute('aria-hidden', 'true');
+  el.innerHTML = `<svg viewBox="0 0 24 24"><path d="${ICONS[name]}"/></svg>`;
+  return el;
+}
+
+// Black or white text, whichever has the higher WCAG contrast on the activity's own colour.
+function onColor(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  const lin = c => (c /= 255) <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  const L = 0.2126 * lin(n >> 16) + 0.7152 * lin(n >> 8 & 255) + 0.0722 * lin(n & 255);
+  return 1.05 / (L + 0.05) >= (L + 0.05) / 0.0533 ? '#FFFFFF' : '#0B0D12'; // 0.0533 ≈ luminance of #0B0D12 + 0.05
+}
+
+// The first not-done activity on day s that hasn't ended yet (only meaningful for today).
+function nextActivity(s) {
+  if (s !== today()) return null;
+  const now = new Date(), m = now.getHours() * 60 + now.getMinutes();
+  return activitiesOn(s).find(a => toMin(a.end_time) > m && !isDone(a, s)) ?? null;
+}
 
 // ---------- data ----------
 // ponytail: loads everything and refetches after every write; fine for one person's planner.
@@ -78,10 +113,10 @@ function dialog(title, body, onSave, onDelete) {
     },
   },
     h('h3', {}, title), body,
-    h('div', { class: 'row' },
+    h('div', { class: 'dialog-actions' },
       onDelete && h('button', { type: 'button', class: 'danger', onclick: () => { dlg.close(); onDelete(new FormData(form)); } }, 'Delete'),
       h('span', { class: 'grow' }),
-      h('button', { type: 'button', onclick: () => dlg.close() }, 'Cancel'),
+      h('button', { type: 'button', class: 'ghost', onclick: () => dlg.close() }, 'Cancel'),
       h('button', { class: 'primary' }, 'Save')));
   dlg.replaceChildren(form);
   dlg.showModal();
@@ -89,8 +124,10 @@ function dialog(title, body, onSave, onDelete) {
 
 // ---------- render ----------
 function render() {
-  document.querySelectorAll('[data-view]').forEach(b => b.classList.toggle('on', b.dataset.view === S.view));
+  document.querySelectorAll('[data-view]').forEach(b => b.classList.toggle('on', b.dataset.view === S.view && !S.lists));
+  $('#listsBtn').classList.toggle('on', S.lists);
   document.body.classList.toggle('show-lists', S.lists);
+  document.body.className = document.body.className.replace(/view-\w+/, 'view-' + S.view);
   $('#date').value = S.cursor;
   $('#title').textContent =
     S.view === 'day' ? fmt(S.cursor, { weekday: 'long', day: 'numeric', month: 'long' })
@@ -102,56 +139,92 @@ function render() {
 }
 
 function dayView() {
-  const s = S.cursor, acts = activitiesOn(s), tasks = tasksOn(s);
-  const total = acts.length + tasks.length;
-  const doneN = acts.filter(a => isDone(a, s)).length + tasks.filter(t => t.done).length;
+  const s = S.cursor, acts = activitiesOn(s), tasks = tasksOn(s), period = activePeriod(s);
+  const counts = [
+    ['sched', 'schedule', acts.filter(a => isDone(a, s)).length, acts.length],
+    ['tasks', 'tasks', tasks.filter(t => t.done).length, tasks.length],
+    ['goals', 'goals', period ? goalsOf(period).filter(g => g.done).length : 0, period ? goalsOf(period).length : 0],
+  ];
+  const rel = daysBetween(today(), s), next = nextActivity(s);
+  const sub = period
+    ? `${period.name} · day ${daysBetween(period.start_date, s) + 1} of ${daysBetween(period.start_date, period.end_date) + 1}`
+    : rel === 0 ? 'Today' : rel === 1 ? 'Tomorrow' : rel === -1 ? 'Yesterday' : fmt(s, { year: 'numeric' });
   return [
+    h('section', { class: 'hero' },
+      rings(counts.map(([, , d, t]) => t ? d / t : 0)),
+      h('div', {},
+        h('h1', { class: 'date' }, fmt(s, { weekday: 'short' }), h('span', {}, fmt(s, { day: 'numeric', month: 'short' }))),
+        h('p', { class: 'hero-sub' }, sub),
+        next && h('p', { class: 'hero-next', style: `--c:${next.color}` }, h('i'), `Next: ${next.title} at ${next.start_time.slice(0, 5)}`))),
+    h('div', { class: 'legend' }, counts.map(([cls, label, d, t]) =>
+      h('span', { class: cls }, h('i'), h('b', {}, t ? `${d}/${t}` : '–'), label))),
     overdueBanner(),
-    ...periodStrips(s),
+    period && collapsible('strip' + period.id,
+      [h('i', { class: 'goal-dot' }), h('h2', {}, `${period.name} goals`), h('span', { class: 'muted' }, progress(goalsOf(period)))],
+      taskList(goalsOf(period), { period_id: period.id }), 'card goals-card'),
     h('div', { class: 'day' },
       h('section', { class: 'card taskcard' },
-        h('div', { class: 'row' }, h('h2', {}, 'Tasks'),
-          total ? h('span', { class: 'muted' }, `${doneN}/${total} done (${Math.round(doneN / total * 100)}%)`) : null),
+        h('div', { class: 'card-head' }, h('h2', {}, 'Tasks')),
         taskList(tasks, { date: s })),
-      h('section', { class: 'card sched' },
-        h('div', { class: 'row' }, h('h2', {}, 'Schedule'), h('button', { onclick: () => editActivity(null, s) }, '+ Activity')),
+      h('section', { class: 'card sched-card' },
+        h('div', { class: 'card-head' }, h('h2', {}, 'Schedule'),
+          h('button', { class: 'primary', onclick: () => editActivity(null, s) }, icon('plus'), 'Activity')),
         timeline([s]))),
   ];
+}
+
+// The three rings (schedule, tasks, goals). Arcs start where they were last render and
+// animate to the new value; a ring that just closed pops once.
+const RING_R = [57, 41, 25];
+function rings(fracs) {
+  const prev = S.rings ?? [0, 0, 0];
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 132 132');
+  svg.setAttribute('class', 'rings');
+  svg.setAttribute('role', 'img');
+  svg.setAttribute('aria-label', `Schedule ${Math.round(fracs[0] * 100)}%, tasks ${Math.round(fracs[1] * 100)}%, goals ${Math.round(fracs[2] * 100)}% done`);
+  const arcs = ['sched', 'tasks', 'goals'].map((cls, i) => {
+    const c = 2 * Math.PI * RING_R[i];
+    svg.innerHTML += `<circle class="track ${cls}" cx="66" cy="66" r="${RING_R[i]}"/>` +
+      `<circle class="arc ${cls}${fracs[i] >= 1 && prev[i] < 1 ? ' closed' : ''}" cx="66" cy="66" r="${RING_R[i]}" stroke-dasharray="${c}" stroke-dashoffset="${c * (1 - Math.min(prev[i], 1))}"/>`;
+    return c;
+  });
+  S.rings = fracs;
+  requestAnimationFrame(() => requestAnimationFrame(() =>
+    svg.querySelectorAll('.arc').forEach((el, i) => {
+      // An empty ring keeps a dot of colour so it still reads as a ring to fill.
+      el.style.strokeDashoffset = arcs[i] * (1 - Math.max(Math.min(fracs[i], 1), 0.001));
+    })));
+  return svg;
 }
 
 function overdueBanner() {
   const t = today(), late = S.tasks.filter(x => x.date && x.date < t && !x.done);
   if (!late.length) return null;
-  return h('details', { class: 'card', open: true },
+  return h('details', { class: 'card late', open: true },
     h('summary', {}, h('b', {}, `${late.length} unfinished from earlier days`)),
     h('ul', { class: 'tasks' }, late.map(x => h('li', {},
-      h('span', { class: 'grow' }, x.title, h('small', { class: 'muted' }, ' · ' + fmt(x.date, { day: 'numeric', month: 'short' }))),
-      h('button', { onclick: () => save(updTask(x, { date: t })) }, '→ Today'),
-      h('button', { title: 'Mark done', onclick: () => save(updTask(x, { done: true })) }, '✓'),
-      h('button', { title: 'Delete', onclick: () => save(sb.from('tasks').delete().eq('id', x.id)) }, '✕')))),
+      h('span', { class: 'grow' }, x.title, ' ', h('span', { class: 'date-chip' }, fmt(x.date, { day: 'numeric', month: 'short' }))),
+      h('button', { onclick: () => save(updTask(x, { date: t })) }, icon('forward'), 'Today'),
+      h('button', { class: 'icon', title: 'Mark done', 'aria-label': 'Mark done', onclick: () => save(updTask(x, { done: true })) }, icon('check')),
+      h('button', { class: 'icon', title: 'Delete', 'aria-label': 'Delete', onclick: () => save(sb.from('tasks').delete().eq('id', x.id)) }, icon('x'))))),
     late.length > 1 && h('button', { onclick: () => save(sb.from('tasks').update({ date: t }).in('id', late.map(x => x.id))) }, 'Move all to today'));
 }
 
-function collapsible(key, summary, body) {
-  return h('details', { class: 'card', open: S.open.has(key), ontoggle: e => e.target.open ? S.open.add(key) : S.open.delete(key) },
+function collapsible(key, summary, body, cls = 'card') {
+  return h('details', { class: cls, open: S.open.has(key), ontoggle: e => e.target.open ? S.open.add(key) : S.open.delete(key) },
     h('summary', {}, summary), body);
-}
-
-function periodStrips(s) {
-  return S.periods.filter(p => p.start_date <= s && s <= p.end_date).map(p =>
-    collapsible('strip' + p.id,
-      [h('b', {}, p.name), ` · day ${daysBetween(p.start_date, s) + 1}/${daysBetween(p.start_date, p.end_date) + 1} · goals ${progress(goalsOf(p))}`],
-      taskList(goalsOf(p), { period_id: p.id })));
 }
 
 function taskList(tasks, defaults) {
   const key = defaults.date || defaults.period_id || 'inbox';
   return h('div', {},
+    tasks.length ? null : h('p', { class: 'empty' }, defaults.period_id ? 'No goals yet.' : defaults.date ? 'Nothing to do yet. Add the first thing.' : 'Inbox is empty.'),
     h('ul', { class: 'tasks' }, tasks.map((t, i) => h('li', { class: t.done ? 'done' : '' },
-      h('input', { type: 'checkbox', checked: t.done, onchange: e => save(updTask(t, { done: e.target.checked })) }),
+      h('input', { type: 'checkbox', checked: t.done, 'aria-label': `Done: ${t.title}`, onchange: e => save(updTask(t, { done: e.target.checked })) }),
       h('span', { class: 'grow', title: 'Edit, move to another day or delete', onclick: () => editTask(t) }, t.title),
-      h('button', { class: 'icon', title: 'Move up', disabled: i === 0, onclick: () => swap(t, tasks[i - 1]) }, '↑'),
-      h('button', { class: 'icon', title: 'Move down', disabled: i === tasks.length - 1, onclick: () => swap(t, tasks[i + 1]) }, '↓')))),
+      h('button', { class: 'icon move', title: 'Move up', 'aria-label': 'Move up', disabled: i === 0, onclick: () => swap(t, tasks[i - 1]) }, icon('up')),
+      h('button', { class: 'icon move', title: 'Move down', 'aria-label': 'Move down', disabled: i === tasks.length - 1, onclick: () => swap(t, tasks[i + 1]) }, icon('down'))))),
     h('form', {
       class: 'add',
       onsubmit: e => {
@@ -203,19 +276,21 @@ function layout(acts) {
 }
 
 function column(s) {
+  const next = nextActivity(s);
   const col = h('div', { class: 'col' },
     layout(activitiesOn(s)).map(({ a, st, en, l, n }) => {
       const top = Math.max(st, START), bot = Math.min(en, END);
       if (bot <= top) return null;
       const done = isDone(a, s);
       return h('div', {
-        class: 'block' + (done ? ' done' : ''),
-        style: `top:${top - START}px;height:${bot - top}px;left:${l / n * 100}%;width:${100 / n}%;--c:${a.color}`,
+        class: 'block' + (done ? ' done' : '') + (a === next ? ' next' : ''),
+        style: `top:${top - START}px;height:${bot - top}px;left:${l / n * 100}%;width:${100 / n}%;--c:${a.color};--on:${onColor(a.color)}`,
         onclick: e => { e.stopPropagation(); editActivity(a, s); },
       },
-        h('input', { type: 'checkbox', checked: done, title: 'Done', onclick: e => e.stopPropagation(), onchange: () => toggleDone(a, s) }),
-        h('b', {}, a.title),
-        h('small', {}, `${a.start_time.slice(0, 5)}–${a.end_time.slice(0, 5)}`));
+        h('input', { type: 'checkbox', checked: done, title: 'Done', 'aria-label': `Done: ${a.title}`, onclick: e => e.stopPropagation(), onchange: () => toggleDone(a, s) }),
+        h('div', { class: 'grow' },
+          h('b', {}, a.title),
+          h('small', {}, `${a.start_time.slice(0, 5)}–${a.end_time.slice(0, 5)}`)));
     }));
   if (s === today()) {
     const now = new Date(), m = now.getHours() * 60 + now.getMinutes();
@@ -237,7 +312,7 @@ function attachCreate(col, s) {
     ptr = e.pointerType;
     if (e.target !== col || ptr !== 'mouse' || e.button !== 0) return;
     start = minAt(e);
-    ghost = h('div', { class: 'block ghost' });
+    ghost = h('div', { class: 'ghost-block' });
     col.append(ghost);
     col.setPointerCapture(e.pointerId);
   });
@@ -271,7 +346,7 @@ function editActivity(a, s, st = 9 * 60, en = 10 * 60) {
   const series = !!a?.repeat_days?.length;
   const days = a?.repeat_days ?? [];
   const recent = [...new Set(S.activities.map(x => x.color))].slice(-10);
-  const color = h('input', { type: 'color', name: 'color', value: a?.color ?? recent.at(-1) ?? '#4f6bff' });
+  const color = h('input', { type: 'color', name: 'color', 'aria-label': 'Pick any colour', value: a?.color ?? recent.at(-1) ?? '#ff3b5c' });
   dialog(a ? 'Edit activity' : 'New activity', [
     field('Title', h('input', { name: 'title', required: true, value: a?.title ?? '' })),
     !series && field('Date', h('input', { type: 'date', name: 'date', required: true, value: s })),
@@ -279,9 +354,9 @@ function editActivity(a, s, st = 9 * 60, en = 10 * 60) {
       field('Start', h('input', { type: 'time', name: 'start', required: true, value: a ? a.start_time.slice(0, 5) : toTime(st) })),
       field('End', h('input', { type: 'time', name: 'end', required: true, value: a ? a.end_time.slice(0, 5) : toTime(en) }))),
     field('Colour', h('div', { class: 'row' }, color,
-      recent.map(c => h('button', { type: 'button', class: 'swatch', title: c, style: `background:${c}`, onclick: () => { color.value = c; } })))),
+      recent.map(c => h('button', { type: 'button', class: 'swatch', title: c, 'aria-label': `Use ${c}`, style: `background:${c}`, onclick: () => { color.value = c; } })))),
     h('fieldset', {}, h('legend', {}, 'Repeat every'),
-      DAYS.map((d, i) => h('label', { class: 'check' }, h('input', { type: 'checkbox', name: 'rep', value: (i + 1) % 7, checked: days.includes((i + 1) % 7) }), d))),
+      DAYS.map((d, i) => h('label', { class: 'pill' }, h('input', { type: 'checkbox', name: 'rep', value: (i + 1) % 7, checked: days.includes((i + 1) % 7) }), h('span', {}, d)))),
     field('Repeat until (optional)', h('input', { type: 'date', name: 'until', value: a?.repeat_until ?? '' })),
     series && h('fieldset', {}, h('legend', {}, 'Apply changes to'),
       h('label', { class: 'check' }, h('input', { type: 'radio', name: 'scope', value: 'this' }), 'This day only'),
@@ -331,11 +406,17 @@ function monthView() {
   return [h('section', { class: 'card month' },
     DAYS.map(d => h('div', { class: 'dow' }, d)),
     cells.map(s => {
-      const t = tasksOn(s), colors = [...new Set(activitiesOn(s).map(a => a.color))];
-      return h('button', { class: `cell${s.slice(0, 7) !== month ? ' other' : ''}${s === today() ? ' today' : ''}`, onclick: () => go('day', s) },
-        h('span', { class: 'num' }, +s.slice(8)),
-        h('div', { class: 'dots' }, colors.slice(0, 6).map(c => h('i', { style: `background:${c}` }))),
-        t.length ? h('small', {}, progress(t)) : null);
+      const t = tasksOn(s), acts = activitiesOn(s), colors = [...new Set(acts.map(a => a.color))];
+      const total = t.length + acts.length, doneN = t.filter(x => x.done).length + acts.filter(a => isDone(a, s)).length;
+      return h('button', {
+        class: `cell${s.slice(0, 7) !== month ? ' other' : ''}${s === today() ? ' today' : ''}`,
+        'aria-label': fmt(s, { weekday: 'long', day: 'numeric', month: 'long' }) + (total ? `, ${doneN} of ${total} done` : ''),
+        onclick: () => go('day', s),
+      },
+        h('div', { class: 'top' },
+          h('span', { class: 'num' }, +s.slice(8)),
+          total ? h('i', { class: 'mini', style: `--p:${Math.round(doneN / total * 100)}` }) : null),
+        h('div', { class: 'dots' }, colors.slice(0, 6).map(c => h('i', { style: `background:${c}` }))));
     }))];
 }
 
@@ -343,17 +424,19 @@ function monthView() {
 function listsView() {
   const inbox = S.tasks.filter(t => !t.date && !t.period_id);
   return [
-    h('section', { class: 'card' }, h('h2', {}, 'Inbox'),
-      h('p', { class: 'muted' }, 'Tasks without a day. Tap one to give it a date.'),
+    h('section', { class: 'card' },
+      h('div', { class: 'card-head' }, h('h2', {}, 'Inbox')),
+      h('p', { class: 'muted' }, 'Tasks without a day yet. Tap one to give it a date.'),
       taskList(inbox, {})),
     h('section', { class: 'card' },
-      h('div', { class: 'row' }, h('h2', {}, 'Periods'), h('button', { onclick: () => editPeriod(null) }, '+ Period')),
-      S.periods.length ? null : h('p', { class: 'muted' }, 'No periods yet. Create one, e.g. "Half-term break", and add goals to it.')),
-    ...S.periods.map(p => collapsible('list' + p.id,
-      [h('b', {}, p.name),
-        h('small', { class: 'muted' }, ` ${fmt(p.start_date, { day: 'numeric', month: 'short' })} – ${fmt(p.end_date, { day: 'numeric', month: 'short' })} · ${progress(goalsOf(p))} `),
-        h('button', { class: 'icon', title: 'Edit period', onclick: e => { e.preventDefault(); editPeriod(p); } }, '✎')],
-      taskList(goalsOf(p), { period_id: p.id }))),
+      h('div', { class: 'card-head' }, h('h2', {}, 'Periods'), h('button', { onclick: () => editPeriod(null) }, icon('plus'), 'Period')),
+      S.periods.length ? null : h('p', { class: 'empty' }, 'Make one for a stretch of time, like "Half-term break", and give it goals.'),
+      S.periods.map(p => collapsible('list' + p.id,
+      [h('i', { class: 'goal-dot' }),
+        h('span', { class: 'grow' }, h('b', {}, p.name), h('br'),
+          h('span', { class: 'muted' }, `${fmt(p.start_date, { day: 'numeric', month: 'short' })} – ${fmt(p.end_date, { day: 'numeric', month: 'short' })} · ${progress(goalsOf(p))} goals`)),
+        h('button', { class: 'icon', title: 'Edit period', 'aria-label': `Edit ${p.name}`, onclick: e => { e.preventDefault(); editPeriod(p); } }, icon('edit'))],
+      taskList(goalsOf(p), { period_id: p.id }), 'period'))),
   ];
 }
 
@@ -379,6 +462,7 @@ function step(n) {
   render();
 }
 
+document.querySelectorAll('[data-icon]').forEach(el => el.prepend(icon(el.dataset.icon)));
 document.querySelectorAll('[data-view]').forEach(b => { b.onclick = () => go(b.dataset.view); });
 $('#prev').onclick = () => step(-1);
 $('#next').onclick = () => step(1);
