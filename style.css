@@ -81,6 +81,8 @@ body.signed-in #auth { display: none; }
 .brand { font-family: var(--display); font-weight: 900; font-stretch: 112%; font-size: 40px; letter-spacing: -.03em; margin: 0 0 4px; }
 .add { display: flex; gap: 8px; }
 .add input { flex: 1; min-width: 0; }
+#login .stack { display: grid; gap: 8px; }
+#login .add button { flex: 1; }
 
 /* ---------- header & nav ---------- */
 header { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 12px; padding: 10px 20px; background: rgb(11 13 18 / .88); backdrop-filter: blur(14px); border-bottom: 1px solid var(--line); }
