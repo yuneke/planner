@@ -21,17 +21,15 @@ git push -u origin main
 ```
 Then on GitHub, open the repo's **Settings → Pages**. Under "Build and deployment", set Source to **Deploy from a branch**, pick `main` and `/ (root)`, and click Save. After about a minute your site is live at `https://<your-username>.github.io/planner/`.
 
-## 3. Allow the login link to go back to your site
-In Supabase, open **Authentication → URL Configuration**:
-- Set **Site URL** to `https://<your-username>.github.io/planner/`
-- Under **Redirect URLs**, add that same address.
+## 3. Turn off email confirmation
+In Supabase, open **Authentication → Sign In / Providers → Email** and switch off **Confirm email**. Then nobody needs to open an inbox.
 
 ## 4. Use it
-Open the site and enter your email. Open the link from the email **on the same device** you requested it from. You stay signed in on that device, so do this once on your laptop and once on your phone.
+Open the site, type an email and password, and click **Create account** (first time only). After that, use **Sign in** on any device. You stay signed in on each device.
+Once everyone who needs an account has one, you can switch off **Allow new users to sign up** in the same Supabase settings so no one else can join.
 On the phone, you can use **Share → Add to Home Screen** to get an app-like icon.
 
 ## Good to know
-- **Email limit:** Supabase's built-in email sender only sends a few login emails per hour. If no link arrives, wait a while before trying again.
 - **Pausing:** free projects pause after about a week without use. If the app says it can't load, open the Supabase dashboard and click **Restore project**. No data is lost.
 - **Changing the app later:** edit the files, then run `git commit -am "change" && git push`. Pages updates in about a minute.
 

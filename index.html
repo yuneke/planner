@@ -14,8 +14,11 @@
     <div class="card">
       <p class="brand">Planner</p>
       <form id="login">
-        <p class="muted">Enter your email and we'll send you a sign-in link.</p>
-        <div class="add"><input type="email" name="email" required placeholder="you@example.com" autocomplete="email"><button class="primary">Send link</button></div>
+        <div class="stack">
+          <input type="email" name="email" required placeholder="you@example.com" autocomplete="email" aria-label="Email">
+          <input type="password" name="password" required minlength="6" placeholder="Password" autocomplete="current-password" aria-label="Password">
+          <div class="add"><button class="primary" value="in">Sign in</button><button value="up">Create account</button></div>
+        </div>
         <p id="authMsg" class="muted" role="status"></p>
       </form>
     </div>

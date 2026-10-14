@@ -477,9 +477,11 @@ if (!sb) {
 } else {
   $('#login').onsubmit = async e => {
     e.preventDefault();
-    $('#authMsg').textContent = 'Sending…';
-    const { error } = await sb.auth.signInWithOtp({ email: e.target.email.value, options: { emailRedirectTo: location.origin + location.pathname } });
-    $('#authMsg').textContent = error ? error.message : 'Check your email and open the link on this device.';
+    const creds = { email: e.target.email.value, password: e.target.password.value };
+    const signUp = e.submitter?.value === 'up';
+    $('#authMsg').textContent = signUp ? 'Creating account…' : 'Signing in…';
+    const { data, error } = await (signUp ? sb.auth.signUp(creds) : sb.auth.signInWithPassword(creds));
+    $('#authMsg').textContent = error ? error.message : data.session ? '' : 'Account created. Turn off "Confirm email" in Supabase to skip the inbox.';
   };
   $('#signout').onclick = () => sb.auth.signOut();
   sb.auth.onAuthStateChange((_event, session) => {
