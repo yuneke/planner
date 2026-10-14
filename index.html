@@ -13,14 +13,22 @@
   <div id="auth">
     <div class="card">
       <p class="brand">Planner</p>
-      <form id="login">
-        <div class="stack">
-          <input type="email" name="email" required placeholder="you@example.com" autocomplete="email" aria-label="Email">
-          <input type="password" name="password" required minlength="6" placeholder="Password" autocomplete="current-password" aria-label="Password">
-          <div class="add"><button class="primary" value="in">Sign in</button><button value="up">Create account</button></div>
-        </div>
-        <p id="authMsg" class="muted" role="status"></p>
+      <p id="authLead" class="muted">Welcome back.</p>
+      <button type="button" id="github" class="github" data-icon="github" data-modes="in up">Continue with GitHub</button>
+      <p class="or" data-modes="in up"><span>or</span></p>
+      <form id="login" data-mode="in">
+        <label class="field" data-modes="in"><span>Email or username</span><input name="login" required autocomplete="username"></label>
+        <label class="field" data-modes="up forgot"><span>Email</span><input type="email" name="email" required autocomplete="email"></label>
+        <label class="field" data-modes="up"><span>Username</span><input name="username" required pattern="[A-Za-z0-9_]{3,20}" title="3–20 letters, numbers or _" autocomplete="username"></label>
+        <label class="field" data-modes="in up"><span>Password</span><input type="password" name="password" required minlength="6" autocomplete="current-password"></label>
+        <button class="primary" id="authGo">Sign in</button>
+        <p id="authMsg" role="status"></p>
       </form>
+      <p class="switch">
+        <button type="button" class="link" data-to="forgot" data-modes="in">Forgot password?</button>
+        <button type="button" class="link" data-to="up" data-modes="in">Create account</button>
+        <button type="button" class="link" data-to="in" data-modes="up forgot">Back to sign in</button>
+      </p>
     </div>
   </div>
 

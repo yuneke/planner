@@ -7,10 +7,10 @@
 web
 
 ## Users
-A single student (the owner) planning their own time: first a 16-day school break (17 Oct – 1 Nov 2026), then ordinary weeks and months. Opens it in the morning to plan the day and in the evening to tick things off and set up tomorrow, on both laptop and phone.
+Students planning their own time: the owner plus a few friends/classmates, each with their own account and private data (nothing is shared between accounts). It started with a 16-day school break (17 Oct – 1 Nov 2026) and is meant for ongoing school-term use after that. Each user opens it in the morning to plan the day and in the evening to tick things off and set up tomorrow, on both laptop and phone.
 
 ## Product Purpose
-A personal planner that combines a timed schedule (e.g. Gym 9–11, Maths 4–6, Football 6:30–9) with a daily to-do list (e.g. read 30 pages, sign paperwork), plus goals for longer named periods. Success: the owner actually keeps using it through the break and feels pushed forward by seeing progress.
+A personal planner that combines a timed schedule (e.g. Gym 9–11, Maths 4–6, Football 6:30–9) with a daily to-do list (e.g. read 30 pages, sign paperwork), plus goals for longer named periods. Success: its users actually keep using it day after day through the term and feels pushed forward by seeing progress.
 
 ## Operating Context
 - Morning: look at today, adjust the schedule, add tasks.
@@ -23,7 +23,8 @@ A personal planner that combines a timed schedule (e.g. Gym 9–11, Maths 4–6,
 - Tasks: title + done, ordered; dated, inbox (no date) or a period goal.
 - Unfinished tasks from earlier days are offered (move to today / done / delete), never moved automatically.
 - Timeline 09:00–23:00. Weeks start Monday.
-- Stack: static HTML/CSS/JS (no build), Supabase (auth by email magic link + Postgres), GitHub Pages hosting. Online-only.
+- Stack: static HTML/CSS/JS (no build), Supabase (sign in with email or username + password, or GitHub; no email confirmation; Postgres with row-level security per user), GitHub Pages hosting. Online-only.
+- Accounts are created from the login screen; sign-ups can be closed in Supabase once everyone has one.
 - No reminders, no streaks, no per-category stats (deliberately out of scope).
 
 ## Brand Commitments
