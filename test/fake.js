@@ -21,4 +21,4 @@ class Q {
     return Promise.resolve({ data, error: null }).then(res, rej);
   }
 }
-export const createClient = () => ({ from: t => new Q(t), auth: { onAuthStateChange(cb) { setTimeout(() => cb('INITIAL_SESSION', { user: {} })); }, signOut() {}, async signInWithPassword() { return {} }, async signUp() { return {} } } });
+export const createClient = () => ({ from: t => new Q(t), rpc: async () => ({ data: null }), auth: { onAuthStateChange(cb) { setTimeout(() => cb('INITIAL_SESSION', { user: {} })); }, signOut() {}, async signInWithPassword() { return {} }, async signUp() { return {} }, async signInWithOAuth() { return {} }, async resetPasswordForEmail() { return {} }, async updateUser() { return {} } } });

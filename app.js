@@ -49,6 +49,7 @@ const ICONS = {
   month: 'M4 5h16a1 1 0 011 1v13a1 1 0 01-1 1H4a1 1 0 01-1-1V6a1 1 0 011-1zM3 10h18M8 3v4M16 3v4M8 14h.01M12 14h.01M16 14h.01M8 17h.01M12 17h.01',
   list: 'M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01',
   out: 'M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9',
+  github: 'M15 22v-4a4.8 4.8 0 00-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.4 5.4 0 004 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4M9 18c-4.51 2-5-2-7-2',
 };
 function icon(name) {
   const el = document.createElement('span');
@@ -475,18 +476,74 @@ $('#listsBtn').onclick = () => { S.lists = !S.lists; render(); };
 if (!sb) {
   $('#login').replaceChildren(h('p', {}, 'Almost there: fill in SUPABASE_URL and SUPABASE_ANON_KEY at the top of app.js (see SETUP.md).'));
 } else {
+  const back = location.origin + location.pathname;
+  const MODES = {
+    in: ['Welcome back.', 'Sign in'],
+    up: ['Make your planner. You only do this once.', 'Create account'],
+    forgot: ["We'll email you a link to set a new password. You only need it once.", 'Email me a link'],
+  };
+  const say = (text, err) => { $('#authMsg').textContent = text; $('#authMsg').classList.toggle('err', !!err); };
+  const setMode = mode => {
+    $('#login').dataset.mode = mode;
+    document.querySelectorAll('#auth [data-modes]').forEach(el => {
+      el.hidden = !el.dataset.modes.split(' ').includes(mode);
+      el.querySelector('input')?.toggleAttribute('disabled', el.hidden); // hidden fields skip validation
+    });
+    [$('#authLead').textContent, $('#authGo').textContent] = MODES[mode];
+    $('#login').password.autocomplete = mode === 'up' ? 'new-password' : 'current-password';
+    say('');
+  };
+  document.querySelectorAll('#auth [data-to]').forEach(b => { b.onclick = () => setMode(b.dataset.to); });
+  setMode('in');
+
+  $('#github').onclick = () => sb.auth.signInWithOAuth({ provider: 'github', options: { redirectTo: back } });
   $('#login').onsubmit = async e => {
     e.preventDefault();
-    const creds = { email: e.target.email.value, password: e.target.password.value };
-    const signUp = e.submitter?.value === 'up';
-    $('#authMsg').textContent = signUp ? 'Creating account…' : 'Signing in…';
-    const { data, error } = await (signUp ? sb.auth.signUp(creds) : sb.auth.signInWithPassword(creds));
-    $('#authMsg').textContent = error ? error.message : data.session ? '' : 'Account created. Turn off "Confirm email" in Supabase to skip the inbox.';
+    const f = e.target, mode = f.dataset.mode, password = f.password.value;
+    $('#authGo').disabled = true;
+    say(mode === 'forgot' ? 'Sending…' : mode === 'up' ? 'Creating your account…' : 'Signing in…');
+    let error;
+    if (mode === 'forgot') {
+      ({ error } = await sb.auth.resetPasswordForEmail(f.email.value, { redirectTo: back }));
+      if (!error) say('Check your email and open the link. After that, you sign in with your password.');
+    } else if (mode === 'up') {
+      ({ error } = await sb.auth.signUp({ email: f.email.value, password, options: { data: { username: f.username.value.toLowerCase() } } }));
+      if (error?.message.includes('Database error')) error = { message: 'That username is taken. Try another.' };
+      else if (error?.code === 'user_already_exists') error = { message: 'That email already has an account. Sign in, or use "Forgot password?" to set a password.' };
+    } else {
+      let email = f.login.value.trim();
+      if (!email.includes('@')) ({ data: email, error } = await sb.rpc('login_email', { login: email, password }));
+      if (!error) ({ error } = email ? await sb.auth.signInWithPassword({ email, password }) : { error: { code: 'invalid_credentials' } });
+      if (error?.code === 'invalid_credentials') error = { message: 'Wrong email, username or password.' };
+      if (error?.code === 'email_not_confirmed') error = { message: 'This account was never confirmed. Use "Forgot password?" once to confirm it.' };
+    }
+    if (error) say(error.message, true);
+    $('#authGo').disabled = false;
   };
+
+  // Opened from a "set a new password" email: choose a password (and a username if the account has none).
+  async function setPassword() {
+    const { data: { user } } = await sb.auth.getUser();
+    const { data: profile } = await sb.from('profiles').select('username').eq('id', user.id).maybeSingle();
+    dialog('Set your password', [
+      field('Username', h('input', { name: 'username', value: profile?.username ?? '', required: true, pattern: '[A-Za-z0-9_]{3,20}', title: '3–20 letters, numbers or _', autocomplete: 'username' })),
+      field('New password', h('input', { type: 'password', name: 'password', required: true, minlength: 6, autocomplete: 'new-password' })),
+    ],
+    fd => {
+      (async () => {
+        const { error } = await sb.from('profiles').upsert({ id: user.id, username: fd.get('username').toLowerCase() });
+        if (error) { alert('That username is taken. Pick another.'); return setPassword(); }
+        const { error: e2 } = await sb.auth.updateUser({ password: fd.get('password') });
+        if (e2) { alert('Could not save the password: ' + e2.message); setPassword(); }
+      })();
+    });
+  }
+
   $('#signout').onclick = () => sb.auth.signOut();
-  sb.auth.onAuthStateChange((_event, session) => {
+  sb.auth.onAuthStateChange((event, session) => {
     document.body.classList.toggle('signed-in', !!session);
     if (session) setTimeout(load); // Supabase advises not awaiting its calls inside this callback
+    if (event === 'PASSWORD_RECOVERY') setTimeout(setPassword);
   });
   // Pick up changes made on another device when you come back to the tab.
   document.addEventListener('visibilitychange', () => {

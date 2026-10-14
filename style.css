@@ -81,8 +81,19 @@ body.signed-in #auth { display: none; }
 .brand { font-family: var(--display); font-weight: 900; font-stretch: 112%; font-size: 40px; letter-spacing: -.03em; margin: 0 0 4px; }
 .add { display: flex; gap: 8px; }
 .add input { flex: 1; min-width: 0; }
-#login .stack { display: grid; gap: 8px; }
-#login .add button { flex: 1; }
+#auth .brand + .muted { margin: 0 0 20px; }
+#login { display: grid; gap: 12px; }
+#login .primary, #auth .github { width: 100%; min-height: 44px; }
+#auth .github { background: var(--text); color: var(--on-accent); }
+#auth .github:hover { background: #D9DDE6; }
+#authMsg { margin: 0; min-height: 1.4em; font-size: 14px; color: var(--muted); }
+#authMsg.err { color: var(--sched); }
+.or { display: flex; align-items: center; gap: 12px; margin: 16px 0; color: var(--muted); font-size: 13px; }
+.or::before, .or::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+.switch { display: flex; justify-content: space-between; gap: 8px; margin: 4px 0 0; }
+button.link { background: none; padding: 4px 0; min-height: 32px; color: var(--muted); font-weight: 500; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--line); }
+button.link:hover { background: none; color: var(--text); text-decoration-color: currentColor; }
+[data-modes][hidden] { display: none; }
 
 /* ---------- header & nav ---------- */
 header { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 12px; padding: 10px 20px; background: rgb(11 13 18 / .88); backdrop-filter: blur(14px); border-bottom: 1px solid var(--line); }
