@@ -336,6 +336,12 @@ function planDay(s) {
     show();
   });
 
+  const strip = extra => h('div', { class: 'plan-strip', 'aria-hidden': 'true' },
+    placedOn(s).filter(b => toMin(b.end_time) > START && toMin(b.start_time) < END)
+      .map(b => h('i', { style: `${span(toMin(b.start_time), toMin(b.end_time))};--c:${b.color}` })),
+    extra,
+    [12, 15, 18, 21].map(hr => h('span', { style: `left:${pct(hr * 60)}` }, hr)));
+
   function show() {
     if (i >= items.length) return finish();
     const a = items[i], d = dur();
@@ -350,11 +356,7 @@ function planDay(s) {
       h('p', { class: 'plan-title', style: `--c:${a.color}` }, h('i'), h('b', {}, a.title), h('span', { class: 'muted' }, fmtDur(d))),
       h('div', { class: 'plan-time' }, nudge(-SNAP, 'left', '15 minutes earlier'), out, nudge(SNAP, 'right', '15 minutes later')),
       fit == null && h('p', { class: 'plan-note' }, 'Nothing free before 23:00. Nudge it into place or skip.'),
-      h('div', { class: 'plan-strip', 'aria-hidden': 'true' },
-        placedOn(s).filter(b => toMin(b.end_time) > START && toMin(b.start_time) < END)
-          .map(b => h('i', { style: `${span(toMin(b.start_time), toMin(b.end_time))};--c:${b.color}` })),
-        prop,
-        [12, 15, 18, 21].map(hr => h('span', { style: `left:${pct(hr * 60)}` }, hr))),
+      strip(prop),
       h('div', { class: 'dialog-actions' },
         i > 0 && h('button', { type: 'button', class: 'ghost', onclick: back }, 'Back'),
         h('span', { class: 'grow' }),
@@ -369,6 +371,7 @@ function planDay(s) {
     dlg.replaceChildren(h('div', { class: 'plan plan-done' },
       h('h3', {}, 'Day planned'),
       h('p', { class: 'muted' }, `${n} placed${left ? `, ${left} still to place` : ''}.`),
+      strip(),
       h('div', { class: 'dialog-actions' }, h('span', { class: 'grow' }),
         h('button', { type: 'button', class: 'primary', onclick: () => dlg.close() }, 'Done'))));
     dlg.querySelector('.primary').focus();
@@ -380,8 +383,8 @@ function planDay(s) {
     if (e.key === 'Enter' && !e.target.matches('.ghost, .skip')) { e.preventDefault(); place(); }
   };
   dlg.addEventListener('close', () => { dlg.onkeydown = null; }, { once: true });
-  show();
   dlg.showModal();
+  show();
 }
 
 function editTask(t) {

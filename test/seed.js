@@ -3,7 +3,10 @@ db.activities.push(
   { id: 'a1', title: 'Gym', color: '#e4572e', start_time: '09:00:00', end_time: '11:00:00', date: '2026-10-01', repeat_days: [1, 2, 3, 5], repeat_until: null, skip_dates: [] },
   { id: 'a2', title: 'Maths', color: '#4f6bff', start_time: '16:00:00', end_time: '18:00:00', date: '2026-10-01', repeat_days: [1, 2, 3, 4, 5], repeat_until: null, skip_dates: [] },
   { id: 'a3', title: 'Football', color: '#2bb673', start_time: '18:30:00', end_time: '21:00:00', date: t, repeat_days: null, repeat_until: null, skip_dates: [] },
-  { id: 'a4', title: 'Revision call', color: '#9b5de5', start_time: '10:00:00', end_time: '11:00:00', date: t, repeat_days: null, repeat_until: null, skip_dates: [] });
+  { id: 'a4', title: 'Revision call', color: '#9b5de5', start_time: '10:00:00', end_time: '11:00:00', date: t, repeat_days: null, repeat_until: null, skip_dates: [] },
+  { id: 'u1', title: 'Gym', color: '#e4572e', start_time: null, end_time: null, duration: 90, position: 1, date: t, repeat_days: null, repeat_until: null, skip_dates: [] },
+  { id: 'u2', title: 'Call grandma', color: '#9b5de5', start_time: null, end_time: null, duration: 30, position: 2, date: t, repeat_days: null, repeat_until: null, skip_dates: [] },
+  { id: 'u3', title: 'Revise history', color: '#4f6bff', start_time: null, end_time: null, duration: 120, position: 3, date: t, repeat_days: null, repeat_until: null, skip_dates: [] });
 db.activity_done.push({ activity_id: 'a1', date: t });
 db.periods.push({ id: 'p1', name: 'Half-term break', start_date: '2026-10-11', end_date: '2026-10-26' });
 db.tasks.push(

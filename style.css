@@ -236,8 +236,8 @@ ul.tasks { list-style: none; margin: 4px 0 12px; padding: 0; }
 /* ---------- unplaced ---------- */
 .sched-body { flex: 1; min-height: 0; display: flex; gap: 16px; }
 .sched-body .timeline { flex: 1; min-width: 0; }
-.unplaced { width: 248px; flex: none; display: flex; flex-direction: column; gap: 10px; padding: 10px 0 4px 16px; border-left: 1px solid var(--line); overflow-y: auto; }
-.unplaced .card-head { margin: 0; }
+aside.unplaced { width: 272px; flex: none; display: flex; flex-direction: column; gap: 10px; padding: 10px 0 4px 16px; border-left: 1px solid var(--line); overflow-y: auto; }
+aside.unplaced .card-head { margin: 0; }
 .unplaced-body { display: flex; flex-direction: column; gap: 10px; }
 details.unplaced .unplaced-body { margin-top: 12px; }
 .plan-btn { width: 100%; min-height: 40px; }
@@ -281,7 +281,7 @@ ul.floating { margin: 0; }
 .dayhead small { color: var(--muted); font-weight: 500; font-size: 11px; }
 .dayhead.today b { color: var(--sched); }
 .week-head > div { display: flex; flex-direction: column; min-width: 0; }
-.strip { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 0 4px 8px; }
+.strip { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 4px; padding: 0 4px 8px; }
 .chip { min-height: 26px; max-width: 100%; padding: 2px 9px 2px 7px; gap: 5px; border-radius: 999px; font-size: 12px; background: var(--raised); }
 .chip i { width: 7px; height: 7px; border-radius: 50%; background: var(--c); flex: none; }
 .chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
