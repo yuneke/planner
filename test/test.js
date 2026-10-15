@@ -143,5 +143,18 @@ try {
   btn('Plan the day').click(); await sleep(20);
   ok(dlg.textContent.includes('Nothing free before 23:00') && time() === '21:00 – 23:00', 'full day: note + latest slot: ' + time());
   dlg.close();
+
+  // ---- week strip ----
+  btn('Current').click(); document.querySelector('[data-view=week]').click(); await sleep(20);
+  ok(all('.week .strip .chip').length > 0, 'week strip shows unplaced chips');
+  document.querySelector('.week .strip button[aria-label$="without a time"]').click(); await sleep(20);
+  const wi = document.querySelector('.week .strip input');
+  ok(wi && document.activeElement === wi, 'week add input focused');
+  wi.value = 'Piano 45m'; wi.form.requestSubmit(); await sleep(100);
+  const piano = db.activities.find(a => a.title === 'Piano');
+  ok(piano?.duration === 45 && piano.start_time == null, 'week add creates an unplaced activity');
+  document.querySelector('.week .strip input').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); await sleep(20);
+  ok(!document.querySelector('.week .strip input'), 'Esc closes week add');
+  document.querySelector('[data-view=day]').click(); await sleep(20);
 } catch (e) { out.push('ERROR ' + e.stack); }
 document.querySelector('#out').textContent = 'RESULTS\n' + out.join('\n');

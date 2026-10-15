@@ -527,10 +527,18 @@ function weekView() {
   const days = Array.from({ length: 7 }, (_, i) => addDays(monday(S.cursor), i));
   return [h('section', { class: 'card week fill' },
     h('div', { class: 'week-head' }, h('div'), days.map(s => {
-      const t = tasksOn(s);
-      return h('button', { class: 'dayhead' + (s === today() ? ' today' : ''), onclick: () => go('day', s) },
+      const t = tasksOn(s), fl = unplacedOn(s), label = fmt(s, { weekday: 'long' });
+      return h('div', {}, h('button', { class: 'dayhead' + (s === today() ? ' today' : ''), onclick: () => go('day', s) },
         h('b', {}, fmt(s, { weekday: 'short', day: 'numeric' })),
-        h('small', {}, t.length ? `${progress(t)} tasks` : ' '));
+        h('small', {}, t.length ? `${progress(t)} tasks` : ' ')),
+        h('div', { class: 'strip' },
+          fl.slice(0, 3).map(a => h('button', { class: 'chip', style: `--c:${a.color}`, title: a.title, onclick: () => go('day', s) }, h('i'), h('span', {}, a.title))),
+          fl.length > 3 && h('button', { class: 'chip', onclick: () => go('day', s) }, `+${fl.length - 3}`),
+          S.weekAdd === s
+            ? h('form', { class: 'grow', onsubmit: e => { e.preventDefault(); addFloating(s, e.target.t.value, 'wk' + s); } },
+              h('input', { name: 't', 'data-k': 'wk' + s, placeholder: 'e.g. Gym 2h', autocomplete: 'off', 'aria-label': `Add to ${label}`,
+                onkeydown: e => { if (e.key === 'Escape') { e.preventDefault(); S.weekAdd = null; render(); } } }))
+            : h('button', { class: 'icon', title: 'Add without a time', 'aria-label': `Add to ${label} without a time`, onclick: () => { S.weekAdd = s; S.focus = 'wk' + s; render(); } }, icon('plus'))));
     })),
     timeline(days))];
 }

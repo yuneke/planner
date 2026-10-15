@@ -279,6 +279,14 @@ ul.floating { margin: 0; }
 .dayhead b { font-family: var(--display); font-size: 15px; }
 .dayhead small { color: var(--muted); font-weight: 500; font-size: 11px; }
 .dayhead.today b { color: var(--sched); }
+.week-head > div { display: flex; flex-direction: column; min-width: 0; }
+.strip { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 0 4px 8px; }
+.chip { min-height: 26px; max-width: 100%; padding: 2px 9px 2px 7px; gap: 5px; border-radius: 999px; font-size: 12px; background: var(--raised); }
+.chip i { width: 7px; height: 7px; border-radius: 50%; background: var(--c); flex: none; }
+.chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.strip button.icon { width: 26px; min-height: 26px; }
+.strip button.icon .ic svg { width: 15px; height: 15px; }
+.strip input { width: 100%; min-height: 30px; padding: 4px 8px; font-size: 13px; border-radius: 9px; }
 
 /* ---------- month ---------- */
 .month.fill { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); grid-template-rows: auto repeat(6, minmax(0, 1fr)); gap: 6px; }
