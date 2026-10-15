@@ -193,6 +193,7 @@ ul.tasks { list-style: none; margin: 4px 0 12px; padding: 0; }
 .late { background: linear-gradient(rgb(255 59 92 / .1), rgb(255 59 92 / .1)), var(--surface); }
 .late summary b { color: #FF8099; }
 .late li button { min-height: 32px; padding: 4px 10px; }
+.late-act .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--c); flex: none; }
 
 /* ---------- timeline (1px per minute) ---------- */
 .timeline { display: grid; grid-template-columns: 46px repeat(var(--n), minmax(0, 1fr)); flex: 1; min-height: 0; margin: 10px 0 4px; }

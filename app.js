@@ -218,16 +218,30 @@ function rings(fracs) {
 }
 
 function overdueBanner() {
-  const t = today(), late = S.tasks.filter(x => x.date && x.date < t && !x.done);
-  if (!late.length) return null;
+  const t = today(), short = { day: 'numeric', month: 'short' };
+  const late = S.tasks.filter(x => x.date && x.date < t && !x.done);
+  const lateActs = S.activities.filter(a => !a.start_time && a.date < t && !isDone(a, a.date));
+  const n = late.length + lateActs.length;
+  if (!n) return null;
   return h('details', { class: 'card late', open: true },
-    h('summary', {}, h('b', {}, `${late.length} unfinished from earlier days`)),
-    h('ul', { class: 'tasks' }, late.map(x => h('li', {},
-      h('span', { class: 'grow' }, x.title, ' ', h('span', { class: 'date-chip' }, fmt(x.date, { day: 'numeric', month: 'short' }))),
-      h('button', { onclick: () => save(updTask(x, { date: t })) }, icon('forward'), 'Today'),
-      h('button', { class: 'icon', title: 'Mark done', 'aria-label': 'Mark done', onclick: () => save(updTask(x, { done: true })) }, icon('check')),
-      h('button', { class: 'icon', title: 'Delete', 'aria-label': 'Delete', onclick: () => save(sb.from('tasks').delete().eq('id', x.id)) }, icon('x'))))),
-    late.length > 1 && h('button', { onclick: () => save(sb.from('tasks').update({ date: t }).in('id', late.map(x => x.id))) }, 'Move all to today'));
+    h('summary', {}, h('b', {}, `${n} unfinished from earlier days`)),
+    h('ul', { class: 'tasks' },
+      late.map(x => h('li', {},
+        h('span', { class: 'grow' }, x.title, ' ', h('span', { class: 'date-chip' }, fmt(x.date, short))),
+        h('button', { onclick: () => save(updTask(x, { date: t })) }, icon('forward'), 'Today'),
+        h('button', { class: 'icon', title: 'Mark done', 'aria-label': 'Mark done', onclick: () => save(updTask(x, { done: true })) }, icon('check')),
+        h('button', { class: 'icon', title: 'Delete', 'aria-label': 'Delete', onclick: () => save(sb.from('tasks').delete().eq('id', x.id)) }, icon('x')))),
+      lateActs.map(a => h('li', { class: 'late-act', style: `--c:${a.color}` },
+        h('i', { class: 'dot' }),
+        h('span', { class: 'grow' }, a.title, ' ', h('span', { class: 'date-chip' }, `no time · ${fmt(a.date, short)}`)),
+        h('button', { onclick: () => save(sb.from('activities').update({ date: t }).eq('id', a.id)) }, icon('forward'), 'Today'),
+        h('button', { class: 'icon', title: 'Delete', 'aria-label': 'Delete', onclick: () => save(sb.from('activities').delete().eq('id', a.id)) }, icon('x'))))),
+    n > 1 && h('button', {
+      onclick: () => save(...[
+        late.length && sb.from('tasks').update({ date: t }).in('id', late.map(x => x.id)),
+        lateActs.length && sb.from('activities').update({ date: t }).in('id', lateActs.map(a => a.id)),
+      ].filter(Boolean)),
+    }, 'Move all to today'));
 }
 
 function collapsible(key, summary, body, cls = 'card') {

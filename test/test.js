@@ -156,5 +156,14 @@ try {
   document.querySelector('.week .strip input').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); await sleep(20);
   ok(!document.querySelector('.week .strip input'), 'Esc closes week add');
   document.querySelector('[data-view=day]').click(); await sleep(20);
+
+  // ---- leftovers ----
+  db.activities.push(fixture('oldp', 'Old plan', '2020-01-02', null, null, null), fixture('oldd', 'Old done', '2020-01-03', null, null, null));
+  db.activity_done.push({ activity_id: 'oldd', date: '2020-01-03' });
+  btn('Current').click(); document.dispatchEvent(new Event('visibilitychange')); await sleep(100);
+  const late = document.querySelector('.late');
+  ok(late?.textContent.includes('Old plan') && !late.textContent.includes('Old done'), 'leftover unplaced offered, done one not');
+  all('.late .late-act').find(li => li.textContent.includes('Old plan')).querySelector('button').click(); await sleep(100);
+  ok(db.activities.find(a => a.id === 'oldp').date === todayS, 'leftover moved to today');
 } catch (e) { out.push('ERROR ' + e.stack); }
 document.querySelector('#out').textContent = 'RESULTS\n' + out.join('\n');
