@@ -104,6 +104,7 @@ async function save(...queries) {
   const err = (await Promise.all(queries)).find(r => r.error);
   if (err) alert('Could not save: ' + err.error.message);
   await load();
+  return err; // callers that must not move on after a failed write check this
 }
 const updTask = (t, v) => sb.from('tasks').update(v).eq('id', t.id);
 
@@ -310,10 +311,11 @@ function suggestSlot(s, dur, after) {
 // so closing halfway keeps what's placed.
 function planDay(s) {
   const dlg = $('#dlg'), items = toPlace(s), ends = []; // ends[i]: end minute of items[i] if placed in this session
-  let i = 0, start = 0, busy = false, out = null, prop = null;
+  let i = 0, start = 0, busy = false, shownAt = 0, out = null, prop = null;
   const dur = () => items[i].duration ?? 60;
   const now = () => { const n = new Date(); return n.getHours() * 60 + n.getMinutes(); };
-  const once = fn => async () => { if (busy) return; busy = true; try { await fn(); } finally { busy = false; } };
+  // One action at a time, and none in the first 250ms of a step, so a double tap can't also hit the next activity's button.
+  const once = fn => async () => { if (busy || performance.now() - shownAt < 250) return; busy = true; try { await fn(); } finally { busy = false; } };
   const span = (st, en) => `left:${pct(Math.max(st, START))};width:${(Math.min(en, END) - Math.max(st, START)) / (END - START) * 100}%`;
   const move = delta => {
     start = Math.min(Math.max(start + delta, START), END - dur());
@@ -321,18 +323,15 @@ function planDay(s) {
     prop.style.left = pct(start);
   };
   const place = once(async () => {
-    await save(sb.from('activities').update({ start_time: toTime(start), end_time: toTime(start + dur()) }).eq('id', items[i].id));
+    if (await save(sb.from('activities').update({ start_time: toTime(start), end_time: toTime(start + dur()) }).eq('id', items[i].id))) return;
     ends[i] = start + dur();
     i++;
     show();
   });
   const skip = once(async () => { ends[i++] = undefined; show(); });
   const back = once(async () => {
-    i--;
-    if (ends[i] !== undefined) {
-      ends[i] = undefined;
-      await save(sb.from('activities').update({ start_time: null, end_time: null }).eq('id', items[i].id));
-    }
+    if (ends[i - 1] !== undefined && await save(sb.from('activities').update({ start_time: null, end_time: null }).eq('id', items[i - 1].id))) return;
+    ends[--i] = undefined;
     show();
   });
 
@@ -343,6 +342,7 @@ function planDay(s) {
     [12, 15, 18, 21].map(hr => h('span', { style: `left:${pct(hr * 60)}` }, hr)));
 
   function show() {
+    shownAt = performance.now();
     if (i >= items.length) return finish();
     const a = items[i], d = dur();
     const after = Math.max(START, s === today() ? now() : 0, ...ends.slice(0, i).filter(e => e !== undefined));
@@ -380,7 +380,7 @@ function planDay(s) {
   dlg.onkeydown = e => {
     if (!out) return;
     if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); move(e.key === 'ArrowLeft' ? -SNAP : SNAP); }
-    if (e.key === 'Enter' && !e.target.matches('.ghost, .skip')) { e.preventDefault(); place(); }
+    if (e.key === 'Enter' && !e.target.matches('.ghost, .skip, .icon')) { e.preventDefault(); place(); }
   };
   dlg.addEventListener('close', () => { dlg.onkeydown = null; }, { once: true });
   dlg.showModal();
@@ -500,7 +500,7 @@ function editActivity(a, s, st = 9 * 60, en = 10 * 60) {
     field('Title', h('input', { name: 'title', required: true, value: a?.title ?? '' })),
     !series && field('Date', h('input', { type: 'date', name: 'date', required: true, value: s })),
     floating
-      ? field('Duration in minutes (optional)', h('input', { type: 'number', name: 'duration', min: 5, max: 840, step: 5, value: a.duration ?? '' }))
+      ? field('Duration in minutes (optional)', h('input', { type: 'number', name: 'duration', min: 5, max: 840, value: a.duration ?? '' }))
       : h('div', { class: 'row' },
         field('Start', h('input', { type: 'time', name: 'start', required: true, value: a ? a.start_time.slice(0, 5) : toTime(st) })),
         field('End', h('input', { type: 'time', name: 'end', required: true, value: a ? a.end_time.slice(0, 5) : toTime(en) }))),

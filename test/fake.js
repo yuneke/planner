@@ -9,6 +9,7 @@ class Q {
   eq(k, v) { this.f.push(r => r[k] === v); return this; }
   in(k, vs) { this.f.push(r => vs.includes(r[k])); return this; }
   then(res, rej) {
+    if (window.__failNext && this.op !== 'select') { window.__failNext = false; return Promise.resolve({ data: null, error: { message: 'offline' } }).then(res, rej); } // test hook: next write fails
     const m = r => this.f.every(f => f(r)); let data = null;
     if (this.op === 'select') data = structuredClone(db[this.t]);
     if (this.op === 'insert') {

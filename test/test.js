@@ -105,6 +105,12 @@ try {
   ok(!f.start && !f.querySelector('[name=rep]') && f.duration, 'unplaced edit: duration, no times or repeat');
   f.duration.value = '30'; f.requestSubmit(); await sleep(100);
   ok(db.activities.find(a => a.title === 'Room 101').duration === 30 && !document.querySelector('#dlg').open, 'unplaced edit saves');
+  await quick('Walk 12m');
+  all('.unplaced li .grow').find(x => x.textContent.startsWith('Walk')).click();
+  f = document.querySelector('#dlg form');
+  ok(f.duration.value === '12' && f.checkValidity(), 'edit dialog accepts a 12-minute duration from quick add');
+  document.querySelector('#dlg').close();
+  db.activities.splice(db.activities.findIndex(a => a.title === 'Walk'), 1); document.dispatchEvent(new Event('visibilitychange')); await sleep(100);
 
   // ---- plan the day (on empty future days, so suggestions don't depend on the clock) ----
   const isoOf = x => `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`;
@@ -120,21 +126,29 @@ try {
   db.activities.push(fixture('busy', 'Busy', dayPlus(1), '09:30:00', '10:00:00', null));
   document.querySelector('#next').click(); document.dispatchEvent(new Event('visibilitychange')); await sleep(100);
   for (const x of ['Run 1h', 'Study 2h', 'Call 30m']) await quick(x);
-  btn('Plan the day').click(); await sleep(20);
+  btn('Plan the day').click(); await sleep(300);
   ok(dlg.open && dlg.textContent.includes('1 of 3') && time() === '10:00 – 11:00', 'suggests first free slot after busy block: ' + time());
-  dlgBtn('Place').click(); dlgBtn('Place')?.click(); await sleep(200);
+  dlgBtn('Place').click(); dlgBtn('Place')?.click(); await sleep(300);
   ok(db.activities.find(a => a.title === 'Run').start_time === '10:00', 'Place saves the time');
   ok(dlg.textContent.includes('2 of 3') && time() === '11:00 – 13:00', 'double Place places once; next slot follows: ' + time());
+  const studyStart = () => db.activities.find(a => a.title === 'Study').start_time;
+  dlg.querySelector('[aria-label="15 minutes later"]').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); await sleep(300);
+  ok(dlg.textContent.includes('2 of 3') && studyStart() == null, 'Enter on a nudge button does not place');
+  window.__failNext = true; dlgBtn('Place').click(); await sleep(300);
+  ok(dlg.textContent.includes('2 of 3') && studyStart() == null && out.some(l => l.includes('offline')), 'failed save stays on the same activity');
   dlg.querySelector('[aria-label="15 minutes later"]').click();
   ok(time() === '11:15 – 13:15', 'nudge later');
   dlg.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
   ok(time() === '11:00 – 13:00', 'arrow key nudges');
-  dlgBtn('Back').click(); await sleep(200);
+  dlgBtn('Back').click(); await sleep(300);
   ok(db.activities.find(a => a.title === 'Run').start_time == null && dlg.textContent.includes('1 of 3'), 'Back unplaces the previous one');
-  dlgBtn('Place').click(); await sleep(200);
-  dlgBtn('Skip').click(); await sleep(50);
+  dlgBtn('Place').click();
+  for (let k = 0; k < 50 && !dlg.textContent.includes('2 of 3'); k++) await sleep(5);
+  dlgBtn('Place').click(); await sleep(300);
+  ok(dlg.textContent.includes('2 of 3') && studyStart() == null, 'a tap right after the next activity appears is ignored');
+  dlgBtn('Skip').click(); await sleep(300);
   ok(dlg.textContent.includes('3 of 3') && time() === '11:00 – 11:30', 'Skip moves on: ' + time());
-  dlgBtn('Place').click(); await sleep(200);
+  dlgBtn('Place').click(); await sleep(300);
   ok(dlg.textContent.includes('Day planned') && dlg.textContent.includes('2 placed, 1 still to place'), 'done screen: ' + dlg.textContent);
   dlgBtn('Done').click(); await sleep(20);
   ok(titles().includes('Run') && titles().includes('Call') && !titles().includes('Study'), 'placed blocks on the timeline: ' + titles());
