@@ -232,6 +232,23 @@ ul.tasks { list-style: none; margin: 4px 0 12px; padding: 0; }
 .now { position: absolute; left: -4px; right: 0; height: 2px; background: var(--sched); z-index: 3; pointer-events: none; }
 .now::before { content: ''; position: absolute; left: -2px; top: -4px; width: 10px; height: 10px; border-radius: 50%; background: var(--sched); }
 
+/* ---------- unplaced ---------- */
+.sched-body { flex: 1; min-height: 0; display: flex; gap: 16px; }
+.sched-body .timeline { flex: 1; min-width: 0; }
+.unplaced { width: 248px; flex: none; display: flex; flex-direction: column; gap: 10px; padding: 10px 0 4px 16px; border-left: 1px solid var(--line); overflow-y: auto; }
+.unplaced .card-head { margin: 0; }
+.unplaced-body { display: flex; flex-direction: column; gap: 10px; }
+details.unplaced .unplaced-body { margin-top: 12px; }
+.plan-btn { width: 100%; min-height: 40px; }
+.icon-add { width: 40px; min-height: 40px; padding: 0; flex: none; }
+ul.floating { margin: 0; }
+.floating li { gap: 10px; padding: 8px 0; }
+.floating input[type=checkbox] { border-color: var(--c); }
+.floating input[type=checkbox]:checked { background: var(--c); }
+.floating input[type=checkbox]::after { border-color: var(--on); }
+.floating li.done .grow { text-decoration-color: color-mix(in srgb, var(--c) 60%, transparent); }
+.floating small { color: var(--muted); font-weight: 600; font-size: 12px; margin-left: 6px; font-variant-numeric: tabular-nums; }
+
 /* ---------- week ---------- */
 .week { overflow-x: auto; }
 .week .timeline { margin-top: 0; }

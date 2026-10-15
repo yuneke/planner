@@ -10,7 +10,7 @@ const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 const sb = SUPABASE_URL.startsWith('http') ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 const $ = s => document.querySelector(s);
-const S = { activities: [], done: [], tasks: [], periods: [], view: 'day', cursor: today(), lists: false, open: new Set(), focus: null };
+const S = { activities: [], done: [], tasks: [], periods: [], view: 'day', cursor: today(), lists: false, open: new Set(), focus: null, weekAdd: null };
 
 // ---------- dates (all local, as 'YYYY-MM-DD' strings) ----------
 function pad(n) { return String(n).padStart(2, '0'); }
@@ -24,6 +24,13 @@ function daysBetween(a, b) { return Math.round((parse(b) - parse(a)) / 864e5); }
 function toMin(t) { return +t.slice(0, 2) * 60 + +t.slice(3, 5); }
 function toTime(m) { return `${pad(Math.floor(m / 60))}:${pad(m % 60)}`; }
 function fmt(s, opts) { return parse(s).toLocaleDateString(undefined, opts); }
+function fmtDur(m) { return m < 60 ? `${m}m` : `${Math.floor(m / 60)}h${m % 60 ? pad(m % 60) : ''}`; }
+// "Gym 2h" → { title: 'Gym', duration: 120 }. Only a trailing 2h / 90m / 1h30 / 1.5h counts; "Room 101" stays a title.
+function parseQuick(text) {
+  const t = text.trim(), m = t.match(/^(.+?)\s+(?:(\d+(?:\.\d+)?)h(\d+)?m?|(\d+)m(?:in)?)$/i);
+  const dur = m && (m[4] ? +m[4] : Math.round(+m[2] * 60 + +(m[3] ?? 0)));
+  return dur >= 5 && dur <= 840 ? { title: m[1], duration: dur } : { title: t, duration: null };
+}
 
 // ---------- queries over loaded data ----------
 function activitiesOn(s) {
@@ -40,6 +47,11 @@ const tasksOn = s => S.tasks.filter(t => t.date === s && !t.period_id);
 const goalsOf = p => S.tasks.filter(t => t.period_id === p.id);
 const progress = list => `${list.filter(t => t.done).length}/${list.length}`;
 const activePeriod = s => S.periods.find(p => p.start_date <= s && s <= p.end_date);
+const toPlace = s => unplacedOn(s).filter(a => !isDone(a, s));
+// Same title as an earlier activity → same colour; otherwise the last colour used.
+const colourFor = title => S.activities.findLast(a => a.title.toLowerCase() === title.toLowerCase())?.color ?? S.activities.at(-1)?.color ?? '#ff3b5c';
+const narrow = matchMedia('(max-width: 700px)');
+narrow.addEventListener('change', () => document.body.classList.contains('signed-in') && render());
 
 // ---------- icons (24px stroke paths) ----------
 const ICONS = {
@@ -166,10 +178,15 @@ function dayView() {
     period && collapsible('strip' + period.id,
       [h('i', { class: 'goal-dot' }), h('h2', {}, `${period.name} goals`), h('span', { class: 'muted' }, progress(goalsOf(period)))],
       taskList(goalsOf(period), { period_id: period.id }), 'card goals-card'),
+    narrow.matches && collapsible('unplaced', [h('h2', {}, `Unplaced (${unplacedOn(s).length})`)], unplacedPanel(s), 'card unplaced'),
     h('section', { class: 'card sched-card fill' },
       h('div', { class: 'card-head' }, h('h2', {}, 'Schedule'),
         h('button', { class: 'primary', onclick: () => editActivity(null, s) }, icon('plus'), 'Activity')),
-      timeline([s])),
+      h('div', { class: 'sched-body' },
+        timeline([s]),
+        !narrow.matches && h('aside', { class: 'unplaced', 'aria-label': 'Unplaced activities' },
+          h('div', { class: 'card-head' }, h('h2', {}, 'Unplaced'), h('span', { class: 'muted' }, unplacedOn(s).length || '')),
+          unplacedPanel(s)))),
   ];
 }
 
@@ -238,6 +255,33 @@ function taskList(tasks, defaults) {
 }
 
 const swap = (a, b) => save(updTask(a, { position: b.position }), updTask(b, { position: a.position }));
+const swapAct = (a, b) => save(sb.from('activities').update({ position: b.position }).eq('id', a.id), sb.from('activities').update({ position: a.position }).eq('id', b.id));
+
+function addFloating(s, text, key) {
+  const { title, duration } = parseQuick(text);
+  if (!title) return;
+  S.focus = key;
+  return save(sb.from('activities').insert({ title, duration, color: colourFor(title), date: s, start_time: null, end_time: null, position: Date.now() }));
+}
+
+// Activities for day s that have no time yet: plan button, quick add, then the list.
+function unplacedPanel(s) {
+  const list = unplacedOn(s), key = 'plan' + s;
+  return h('div', { class: 'unplaced-body' },
+    toPlace(s).length > 0 && h('button', { class: 'primary plan-btn', onclick: () => planDay(s) }, 'Plan the day'),
+    h('form', { class: 'add', onsubmit: e => { e.preventDefault(); addFloating(s, e.target.t.value, key); } },
+      h('input', { name: 't', 'data-k': key, placeholder: 'Add to plan… e.g. Gym 2h', autocomplete: 'off', 'aria-label': 'Add an activity without a time' }),
+      h('button', { class: 'icon-add', 'aria-label': 'Add' }, icon('plus'))),
+    list.length
+      ? h('ul', { class: 'tasks floating' }, list.map((a, i) => h('li', { class: isDone(a, s) ? 'done' : '', style: `--c:${a.color};--on:${onColor(a.color)}` },
+          h('input', { type: 'checkbox', checked: isDone(a, s), 'aria-label': `Done: ${a.title}`, onchange: () => toggleDone(a, s) }),
+          h('span', { class: 'grow', title: 'Edit or delete', onclick: () => editActivity(a, s) }, a.title, a.duration && h('small', {}, fmtDur(a.duration))),
+          h('button', { class: 'icon move', title: 'Move up', 'aria-label': 'Move up', disabled: i === 0, onclick: () => swapAct(a, list[i - 1]) }, icon('up')),
+          h('button', { class: 'icon move', title: 'Move down', 'aria-label': 'Move down', disabled: i === list.length - 1, onclick: () => swapAct(a, list[i + 1]) }, icon('down')))))
+      : h('p', { class: 'empty' }, 'Nothing to place. Add what you want to do, then plan it.'));
+}
+
+function planDay() {} // replaced in the Plan the day task
 
 function editTask(t) {
   dialog(t.period_id ? 'Goal' : 'Task', [
@@ -344,21 +388,23 @@ const toggleDone = (a, s) => save(isDone(a, s)
 
 // ---------- activity form ----------
 function editActivity(a, s, st = 9 * 60, en = 10 * 60) {
-  const series = !!a?.repeat_days?.length;
+  const series = !!a?.repeat_days?.length, floating = !!a && !a.start_time;
   const days = a?.repeat_days ?? [];
   const recent = [...new Set(S.activities.map(x => x.color))].slice(-10);
   const color = h('input', { type: 'color', name: 'color', 'aria-label': 'Pick any colour', value: a?.color ?? recent.at(-1) ?? '#ff3b5c' });
   dialog(a ? 'Edit activity' : 'New activity', [
     field('Title', h('input', { name: 'title', required: true, value: a?.title ?? '' })),
     !series && field('Date', h('input', { type: 'date', name: 'date', required: true, value: s })),
-    h('div', { class: 'row' },
-      field('Start', h('input', { type: 'time', name: 'start', required: true, value: a ? a.start_time.slice(0, 5) : toTime(st) })),
-      field('End', h('input', { type: 'time', name: 'end', required: true, value: a ? a.end_time.slice(0, 5) : toTime(en) }))),
+    floating
+      ? field('Duration in minutes (optional)', h('input', { type: 'number', name: 'duration', min: 5, max: 840, step: 5, value: a.duration ?? '' }))
+      : h('div', { class: 'row' },
+        field('Start', h('input', { type: 'time', name: 'start', required: true, value: a ? a.start_time.slice(0, 5) : toTime(st) })),
+        field('End', h('input', { type: 'time', name: 'end', required: true, value: a ? a.end_time.slice(0, 5) : toTime(en) }))),
     field('Colour', h('div', { class: 'row' }, color,
       recent.map(c => h('button', { type: 'button', class: 'swatch', title: c, 'aria-label': `Use ${c}`, style: `background:${c}`, onclick: () => { color.value = c; } })))),
-    h('fieldset', {}, h('legend', {}, 'Repeat every'),
+    !floating && h('fieldset', {}, h('legend', {}, 'Repeat every'),
       DAYS.map((d, i) => h('label', { class: 'pill' }, h('input', { type: 'checkbox', name: 'rep', value: (i + 1) % 7, checked: days.includes((i + 1) % 7) }), h('span', {}, d)))),
-    field('Repeat until (optional)', h('input', { type: 'date', name: 'until', value: a?.repeat_until ?? '' })),
+    !floating && field('Repeat until (optional)', h('input', { type: 'date', name: 'until', value: a?.repeat_until ?? '' })),
     series && h('fieldset', {}, h('legend', {}, 'Apply changes to'),
       h('label', { class: 'check' }, h('input', { type: 'radio', name: 'scope', value: 'this' }), 'This day only'),
       h('label', { class: 'check' }, h('input', { type: 'radio', name: 'scope', value: 'all', checked: true }), 'Every day it repeats')),
@@ -370,6 +416,7 @@ function editActivity(a, s, st = 9 * 60, en = 10 * 60) {
 const skipDay = (a, s) => sb.from('activities').update({ skip_dates: [...a.skip_dates, s] }).eq('id', a.id);
 
 function saveActivity(a, s, fd) {
+  if (a && !a.start_time) return save(sb.from('activities').update({ title: fd.get('title').trim(), color: fd.get('color'), date: fd.get('date'), duration: +fd.get('duration') || null }).eq('id', a.id));
   const row = {
     title: fd.get('title').trim(),
     color: fd.get('color'),

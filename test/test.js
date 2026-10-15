@@ -82,5 +82,28 @@ try {
   document.dispatchEvent(new Event('visibilitychange')); await sleep(100);
   ok(!titles().includes('Swim'), 'unplaced activity stays off the timeline');
   ok(schedTotal() === before1 + 1, 'ring counts unplaced as not done: ' + schedTotal());
+
+  // ---- unplaced panel ----
+  const quick = async x => { const q = document.querySelector('.unplaced form.add'); q.t.value = x; q.requestSubmit(); await sleep(100); };
+  const floatList = () => all('.unplaced li .grow').map(x => x.textContent);
+  db.activities.find(a => a.title === 'Maths').color = '#123456';
+  document.dispatchEvent(new Event('visibilitychange')); await sleep(100);
+  ok(floatList().includes('Swim1h'), 'unplaced list shows Swim: ' + floatList());
+  await quick('Read 1h30');
+  const read = db.activities.find(a => a.title === 'Read');
+  ok(read?.duration === 90 && read.start_time == null && read.date === todayS, 'quick add "Read 1h30": ' + JSON.stringify(read));
+  ok(document.activeElement?.dataset.k === 'plan' + todayS, 'focus stays in plan box');
+  await quick('Room 101');
+  ok(db.activities.some(a => a.title === 'Room 101' && a.duration == null), '"Room 101" keeps the number');
+  await quick('maths 2h');
+  ok(db.activities.find(a => a.title === 'maths')?.color === '#123456', 'colour reused by title');
+  ok(floatList().join('|') === 'Swim1h|Read1h30|Room 101|maths2h', 'list order + durations: ' + floatList().join('|'));
+  all('.unplaced button[title="Move down"]')[0].click(); await sleep(100);
+  ok(floatList()[0] === 'Read1h30', 'reorder unplaced');
+  all('.unplaced li .grow').find(x => x.textContent.startsWith('Room')).click();
+  f = document.querySelector('#dlg form');
+  ok(!f.start && !f.querySelector('[name=rep]') && f.duration, 'unplaced edit: duration, no times or repeat');
+  f.duration.value = '30'; f.requestSubmit(); await sleep(100);
+  ok(db.activities.find(a => a.title === 'Room 101').duration === 30 && !document.querySelector('#dlg').open, 'unplaced edit saves');
 } catch (e) { out.push('ERROR ' + e.stack); }
 document.querySelector('#out').textContent = 'RESULTS\n' + out.join('\n');
