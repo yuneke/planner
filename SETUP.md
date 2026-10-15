@@ -2,7 +2,7 @@
 
 ## 1. Supabase (database and login)
 1. Go to https://supabase.com, sign up, and click **New project**. Pick any name, pick a region close to you, and save the database password somewhere safe (you won't need it for this app).
-2. When the project is ready, go to **SQL Editor** in the left sidebar, then **New query**. Paste in all of `schema.sql`, then click **Run**. It should say "Success. No rows returned". Then do the same with `accounts.sql` (usernames).
+2. When the project is ready, go to **SQL Editor** in the left sidebar, then **New query**. Paste in all of `schema.sql`, then click **Run**. It should say "Success. No rows returned". Then do the same with `accounts.sql` (usernames) and `plans.sql` (activities without a time).
 3. Go to **Project Settings → API** (on some dashboards this is **Connect** or **API Keys**) and copy two values:
    - **Project URL**, which looks like `https://abcdefgh.supabase.co`
    - the **anon / public** key, or the **publishable** key on newer projects. Do **not** use the `service_role` or secret key.

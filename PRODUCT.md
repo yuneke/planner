@@ -22,6 +22,7 @@ A personal planner that combines a timed schedule (e.g. Gym 9–11, Maths 4–6,
 - Activities: title, start/end, any custom colour, optional weekly repeat with end date, per-occurrence done tick, edit "this day only" or "every day".
 - Tasks: title + done, ordered; dated, inbox (no date) or a period goal.
 - Unfinished tasks from earlier days are offered (move to today / done / delete), never moved automatically.
+- Activities can be added to a day without a time (quick add on the day or in Week view, with an optional duration like `2h`). They sit in an Unplaced list until "Plan the day" steps through them and gives each a time; leftovers from past days are offered in the overdue banner.
 - Timeline 09:00–23:00. Weeks start Monday.
 - Stack: static HTML/CSS/JS (no build), Supabase (sign in with email or username + password, or GitHub; no email confirmation; Postgres with row-level security per user), GitHub Pages hosting. Online-only.
 - Accounts are created from the login screen; sign-ups can be closed in Supabase once everyone has one.

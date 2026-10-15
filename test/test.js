@@ -73,5 +73,111 @@ try {
   ok(document.documentElement.scrollHeight <= innerHeight + 1, 'page fits the viewport: ' + document.documentElement.scrollHeight + '/' + innerHeight);
   ok(document.querySelector('#lists .taskcard'), 'tasks card lives under Inbox and Periods');
   ok(document.querySelector('#todayBtn').textContent.trim() === 'Current', 'nav says Current');
+
+  // ---- floating activities ----
+  const schedTotal = () => +document.querySelector('.legend .sched b').textContent.split('/')[1] || 0;
+  btn('Current').click(); await sleep(20);
+  const before1 = schedTotal();
+  db.activities.push({ id: 'f1', title: 'Swim', color: '#3bd6ff', start_time: null, end_time: null, duration: 60, position: 1, date: todayS, repeat_days: null, repeat_until: null, skip_dates: [] });
+  document.dispatchEvent(new Event('visibilitychange')); await sleep(100);
+  ok(!titles().includes('Swim'), 'unplaced activity stays off the timeline');
+  ok(schedTotal() === before1 + 1, 'ring counts unplaced as not done: ' + schedTotal());
+
+  // ---- unplaced panel ----
+  const quick = async x => { const q = document.querySelector('.unplaced form.add'); q.t.value = x; q.requestSubmit(); await sleep(100); };
+  const floatList = () => all('.unplaced li .grow').map(x => x.textContent);
+  db.activities.find(a => a.title === 'Maths').color = '#123456';
+  document.dispatchEvent(new Event('visibilitychange')); await sleep(100);
+  ok(floatList().includes('Swim1h'), 'unplaced list shows Swim: ' + floatList());
+  await quick('Read 1h30');
+  const read = db.activities.find(a => a.title === 'Read');
+  ok(read?.duration === 90 && read.start_time == null && read.date === todayS, 'quick add "Read 1h30": ' + JSON.stringify(read));
+  ok(document.activeElement?.dataset.k === 'plan' + todayS, 'focus stays in plan box');
+  await quick('Room 101');
+  ok(db.activities.some(a => a.title === 'Room 101' && a.duration == null), '"Room 101" keeps the number');
+  await quick('maths 2h');
+  ok(db.activities.find(a => a.title === 'maths')?.color === '#123456', 'colour reused by title');
+  ok(floatList().join('|') === 'Swim1h|Read1h30|Room 101|maths2h', 'list order + durations: ' + floatList().join('|'));
+  all('.unplaced button[title="Move down"]')[0].click(); await sleep(100);
+  ok(floatList()[0] === 'Read1h30', 'reorder unplaced');
+  all('.unplaced li .grow').find(x => x.textContent.startsWith('Room')).click();
+  f = document.querySelector('#dlg form');
+  ok(!f.start && !f.querySelector('[name=rep]') && f.duration, 'unplaced edit: duration, no times or repeat');
+  f.duration.value = '30'; f.requestSubmit(); await sleep(100);
+  ok(db.activities.find(a => a.title === 'Room 101').duration === 30 && !document.querySelector('#dlg').open, 'unplaced edit saves');
+  await quick('Walk 12m');
+  all('.unplaced li .grow').find(x => x.textContent.startsWith('Walk')).click();
+  f = document.querySelector('#dlg form');
+  ok(f.duration.value === '12' && f.checkValidity(), 'edit dialog accepts a 12-minute duration from quick add');
+  document.querySelector('#dlg').close();
+  db.activities.splice(db.activities.findIndex(a => a.title === 'Walk'), 1); document.dispatchEvent(new Event('visibilitychange')); await sleep(100);
+
+  // ---- plan the day (on empty future days, so suggestions don't depend on the clock) ----
+  const isoOf = x => `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`;
+  const dayPlus = n => { const x = new Date(d); x.setDate(d.getDate() + n); return isoOf(x); };
+  const fixture = (id, title, date, st, en, duration) => ({ id, title, color: '#888888', start_time: st, end_time: en, duration, position: 0, date, repeat_days: null, repeat_until: null, skip_dates: [] });
+  const dlg = document.querySelector('#dlg'), time = () => dlg.querySelector('output')?.textContent;
+  const dlgBtn = t => [...dlg.querySelectorAll('button')].find(b => b.textContent === t);
+  btn('Current').click(); await sleep(20);
+  ok(document.querySelector('.hero-plan')?.textContent.includes('to place'), 'hero nudge on today');
+  document.querySelector('.hero-plan button').click(); await sleep(20);
+  ok(dlg.open && dlg.textContent.includes('Plan '), 'Plan now opens the planner');
+  dlg.close();
+  db.activities.push(fixture('busy', 'Busy', dayPlus(1), '09:30:00', '10:00:00', null));
+  document.querySelector('#next').click(); document.dispatchEvent(new Event('visibilitychange')); await sleep(100);
+  for (const x of ['Run 1h', 'Study 2h', 'Call 30m']) await quick(x);
+  btn('Plan the day').click(); await sleep(300);
+  ok(dlg.open && dlg.textContent.includes('1 of 3') && time() === '10:00 – 11:00', 'suggests first free slot after busy block: ' + time());
+  dlgBtn('Place').click(); dlgBtn('Place')?.click(); await sleep(300);
+  ok(db.activities.find(a => a.title === 'Run').start_time === '10:00', 'Place saves the time');
+  ok(dlg.textContent.includes('2 of 3') && time() === '11:00 – 13:00', 'double Place places once; next slot follows: ' + time());
+  const studyStart = () => db.activities.find(a => a.title === 'Study').start_time;
+  dlg.querySelector('[aria-label="15 minutes later"]').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); await sleep(300);
+  ok(dlg.textContent.includes('2 of 3') && studyStart() == null, 'Enter on a nudge button does not place');
+  window.__failNext = true; dlgBtn('Place').click(); await sleep(300);
+  ok(dlg.textContent.includes('2 of 3') && studyStart() == null && out.some(l => l.includes('offline')), 'failed save stays on the same activity');
+  dlg.querySelector('[aria-label="15 minutes later"]').click();
+  ok(time() === '11:15 – 13:15', 'nudge later');
+  dlg.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
+  ok(time() === '11:00 – 13:00', 'arrow key nudges');
+  dlgBtn('Back').click(); await sleep(300);
+  ok(db.activities.find(a => a.title === 'Run').start_time == null && dlg.textContent.includes('1 of 3'), 'Back unplaces the previous one');
+  dlgBtn('Place').click();
+  for (let k = 0; k < 50 && !dlg.textContent.includes('2 of 3'); k++) await sleep(5);
+  dlgBtn('Place').click(); await sleep(300);
+  ok(dlg.textContent.includes('2 of 3') && studyStart() == null, 'a tap right after the next activity appears is ignored');
+  dlgBtn('Skip').click(); await sleep(300);
+  ok(dlg.textContent.includes('3 of 3') && time() === '11:00 – 11:30', 'Skip moves on: ' + time());
+  dlgBtn('Place').click(); await sleep(300);
+  ok(dlg.textContent.includes('Day planned') && dlg.textContent.includes('2 placed, 1 still to place'), 'done screen: ' + dlg.textContent);
+  dlgBtn('Done').click(); await sleep(20);
+  ok(titles().includes('Run') && titles().includes('Call') && !titles().includes('Study'), 'placed blocks on the timeline: ' + titles());
+  db.activities.push(fixture('full', 'Exams', dayPlus(2), '09:00:00', '23:00:00', null), { ...fixture('nap', 'Nap', dayPlus(2), null, null, 120), position: 1 });
+  document.querySelector('#next').click(); document.dispatchEvent(new Event('visibilitychange')); await sleep(100);
+  btn('Plan the day').click(); await sleep(20);
+  ok(dlg.textContent.includes('Nothing free before 23:00') && time() === '21:00 – 23:00', 'full day: note + latest slot: ' + time());
+  dlg.close();
+
+  // ---- week strip ----
+  btn('Current').click(); document.querySelector('[data-view=week]').click(); await sleep(20);
+  ok(all('.week .strip .chip').length > 0, 'week strip shows unplaced chips');
+  document.querySelector('.week .strip button[aria-label$="without a time"]').click(); await sleep(20);
+  const wi = document.querySelector('.week .strip input');
+  ok(wi && document.activeElement === wi, 'week add input focused');
+  wi.value = 'Piano 45m'; wi.form.requestSubmit(); await sleep(100);
+  const piano = db.activities.find(a => a.title === 'Piano');
+  ok(piano?.duration === 45 && piano.start_time == null, 'week add creates an unplaced activity');
+  document.querySelector('.week .strip input').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); await sleep(20);
+  ok(!document.querySelector('.week .strip input'), 'Esc closes week add');
+  document.querySelector('[data-view=day]').click(); await sleep(20);
+
+  // ---- leftovers ----
+  db.activities.push(fixture('oldp', 'Old plan', '2020-01-02', null, null, null), fixture('oldd', 'Old done', '2020-01-03', null, null, null));
+  db.activity_done.push({ activity_id: 'oldd', date: '2020-01-03' });
+  btn('Current').click(); document.dispatchEvent(new Event('visibilitychange')); await sleep(100);
+  const late = document.querySelector('.late');
+  ok(late?.textContent.includes('Old plan') && !late.textContent.includes('Old done'), 'leftover unplaced offered, done one not');
+  all('.late .late-act').find(li => li.textContent.includes('Old plan')).querySelector('button').click(); await sleep(100);
+  ok(db.activities.find(a => a.id === 'oldp').date === todayS, 'leftover moved to today');
 } catch (e) { out.push('ERROR ' + e.stack); }
 document.querySelector('#out').textContent = 'RESULTS\n' + out.join('\n');

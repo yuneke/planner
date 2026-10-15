@@ -235,6 +235,14 @@ Hidden native inputs with a 34px, 10px-radius Raised Slate label (muted, 600, 13
 ### Timeline Blocks
 Absolutely positioned on the minute grid; 10px radius, a 2px Slate Surface border to separate neighbours, full user colour fill with auto-contrast text (700 title, 500 tabular time). Under 80px wide the checkbox and time hide. **Done:** colour mixed 30% into Raised Slate, Bone text, title struck through. **Next:** a 2px Bone ring. The current time is a 2px Schedule Red line with a 10px dot. Drag-to-create shows a lime 18% ghost with a 2px dashed lime border.
 
+### Unplaced & Plan the day
+Activities without a time live in an **Unplaced** list: a 272px side column inside the Schedule card on laptop (hairline left rule), and a collapsible card above the schedule on phone. The list rows match task rows, but each checkbox is tinted with the activity's own colour and the duration is a muted tabular label (`1h30`). A full-width lime **Plan the day** button and a one-line quick add ("Add to plan… e.g. Gym 2h") sit above the list. On today the hero adds "N to place · Plan now" with a lime link. The plan dialog steps through one activity at a time:
+- a 28px Archivo title with a colour dot;
+- a 24px tabular time readout in a Night Ground well, flanked by 44px ◀ ▶ nudges;
+- a horizontal 09–23 day strip where placed blocks sit at 40% colour and the proposed block is full colour with a 2px Bone ring, sliding as it is nudged.
+
+It ends on a 32px "Day planned" moment showing the filled strip. In Week view, each day header carries up to three colour-dot chips (999px radius, Raised Slate) and a small + that opens a one-line add.
+
 ### Month Cells
 84px (58px phone) Raised Slate tiles, 14px radius; out-of-month days transparent and muted. Each carries the Archivo day number (today on a Schedule Red pill), a mini tasks ring (22px conic gradient masked to a ring; 14px on phone) and colour dots for the day's activities.
 
