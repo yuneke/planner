@@ -31,8 +31,10 @@ function activitiesOn(s) {
   return S.activities.filter(a => a.repeat_days?.length
     ? a.repeat_days.includes(dow) && s >= a.date && (!a.repeat_until || s <= a.repeat_until) && !a.skip_dates.includes(s)
     : a.date === s
-  ).sort((a, b) => a.start_time.localeCompare(b.start_time));
+  ).sort((a, b) => (a.start_time ?? '~').localeCompare(b.start_time ?? '~') || a.position - b.position); // unplaced last
 }
+const placedOn = s => activitiesOn(s).filter(a => a.start_time);
+const unplacedOn = s => activitiesOn(s).filter(a => !a.start_time);
 const isDone = (a, s) => S.done.some(d => d.activity_id === a.id && d.date === s);
 const tasksOn = s => S.tasks.filter(t => t.date === s && !t.period_id);
 const goalsOf = p => S.tasks.filter(t => t.period_id === p.id);
@@ -71,7 +73,7 @@ function onColor(hex) {
 function nextActivity(s) {
   if (s !== today()) return null;
   const now = new Date(), m = now.getHours() * 60 + now.getMinutes();
-  return activitiesOn(s).find(a => toMin(a.end_time) > m && !isDone(a, s)) ?? null;
+  return placedOn(s).find(a => toMin(a.end_time) > m && !isDone(a, s)) ?? null;
 }
 
 // ---------- data ----------
@@ -276,7 +278,7 @@ function layout(acts) {
 function column(s) {
   const next = nextActivity(s);
   const col = h('div', { class: 'col' },
-    layout(activitiesOn(s)).map(({ a, st, en, l, n }) => {
+    layout(placedOn(s)).map(({ a, st, en, l, n }) => {
       const top = Math.max(st, START), bot = Math.min(en, END);
       if (bot <= top) return null;
       const done = isDone(a, s);

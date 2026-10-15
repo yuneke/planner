@@ -13,7 +13,7 @@ class Q {
     if (this.op === 'select') data = structuredClone(db[this.t]);
     if (this.op === 'insert') {
       const row = { id: crypto.randomUUID(), done: false, date: null, period_id: null, ...structuredClone(this.v) };
-      if (this.t === 'activities') Object.assign(row, { skip_dates: [], repeat_days: row.repeat_days ?? null, repeat_until: row.repeat_until ?? null, start_time: row.start_time + ':00', end_time: row.end_time + ':00' });
+      if (this.t === 'activities') Object.assign(row, { skip_dates: [], repeat_days: row.repeat_days ?? null, repeat_until: row.repeat_until ?? null, start_time: row.start_time && row.start_time + ':00', end_time: row.end_time && row.end_time + ':00', duration: row.duration ?? null, position: row.position ?? 0 });
       db[this.t].push(row);
     }
     if (this.op === 'update') db[this.t].filter(m).forEach(r => Object.assign(r, structuredClone(this.v)));

@@ -73,5 +73,14 @@ try {
   ok(document.documentElement.scrollHeight <= innerHeight + 1, 'page fits the viewport: ' + document.documentElement.scrollHeight + '/' + innerHeight);
   ok(document.querySelector('#lists .taskcard'), 'tasks card lives under Inbox and Periods');
   ok(document.querySelector('#todayBtn').textContent.trim() === 'Current', 'nav says Current');
+
+  // ---- floating activities ----
+  const schedTotal = () => +document.querySelector('.legend .sched b').textContent.split('/')[1] || 0;
+  btn('Current').click(); await sleep(20);
+  const before1 = schedTotal();
+  db.activities.push({ id: 'f1', title: 'Swim', color: '#3bd6ff', start_time: null, end_time: null, duration: 60, position: 1, date: todayS, repeat_days: null, repeat_until: null, skip_dates: [] });
+  document.dispatchEvent(new Event('visibilitychange')); await sleep(100);
+  ok(!titles().includes('Swim'), 'unplaced activity stays off the timeline');
+  ok(schedTotal() === before1 + 1, 'ring counts unplaced as not done: ' + schedTotal());
 } catch (e) { out.push('ERROR ' + e.stack); }
 document.querySelector('#out').textContent = 'RESULTS\n' + out.join('\n');
