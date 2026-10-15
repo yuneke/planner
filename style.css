@@ -249,6 +249,27 @@ ul.floating { margin: 0; }
 .floating li.done .grow { text-decoration-color: color-mix(in srgb, var(--c) 60%, transparent); }
 .floating small { color: var(--muted); font-weight: 600; font-size: 12px; margin-left: 6px; font-variant-numeric: tabular-nums; }
 
+/* ---------- plan the day ---------- */
+.hero-plan { margin: 4px 0 0; font-weight: 600; }
+.hero-plan .link { min-height: 0; padding: 0; color: var(--tasks); text-decoration-color: currentColor; font-weight: 700; }
+.plan { display: flex; flex-direction: column; gap: 16px; }
+.plan-head { display: flex; align-items: baseline; gap: 12px; }
+.plan-head h3 { flex: 1; }
+.plan-head .muted { font-weight: 600; font-variant-numeric: tabular-nums; }
+.plan-title { display: flex; align-items: center; gap: 10px; margin: 4px 0 0; font-family: var(--display); font-size: 28px; font-weight: 800; letter-spacing: -.02em; line-height: 1.1; }
+.plan-title i { width: 14px; height: 14px; border-radius: 50%; background: var(--c); flex: none; }
+.plan-title b { font-weight: inherit; min-width: 0; overflow-wrap: anywhere; }
+.plan-title .muted { font: 600 15px/1.4 system-ui, sans-serif; letter-spacing: 0; flex: none; }
+.plan-time { display: flex; align-items: center; justify-content: space-between; background: var(--ground); border-radius: 14px; padding: 6px; }
+.plan-time output { font-family: var(--display); font-size: 24px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.plan-time button.icon { width: 44px; min-height: 44px; }
+.plan-note { margin: -6px 0 0; color: #FF8099; font-size: 14px; }
+.plan-strip { position: relative; height: 36px; margin-bottom: 18px; border-radius: 10px; background: repeating-linear-gradient(to right, var(--line) 0 1px, transparent 1px calc(100% / 14)), var(--ground); }
+.plan-strip i { position: absolute; top: 5px; bottom: 5px; border-radius: 6px; background: color-mix(in srgb, var(--c) 40%, var(--raised)); }
+.plan-strip .proposed { background: var(--c); box-shadow: 0 0 0 2px var(--text); z-index: 1; transition: left .3s var(--ease); }
+.plan-strip span { position: absolute; top: calc(100% + 4px); transform: translateX(-50%); font-size: 11px; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; }
+.plan-done h3 { font-size: 32px; font-weight: 900; font-stretch: 112%; letter-spacing: -.03em; animation: dlg-in .5s var(--ease); }
+
 /* ---------- week ---------- */
 .week { overflow-x: auto; }
 .week .timeline { margin-top: 0; }

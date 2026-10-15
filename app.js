@@ -171,7 +171,9 @@ function dayView() {
       h('div', {},
         h('h1', { class: 'date' }, fmt(s, { weekday: 'short' }), h('span', {}, fmt(s, { day: 'numeric', month: 'short' }))),
         h('p', { class: 'hero-sub' }, sub),
-        next && h('p', { class: 'hero-next', style: `--c:${next.color}` }, h('i'), `Next: ${next.title} at ${next.start_time.slice(0, 5)}`)),
+        next && h('p', { class: 'hero-next', style: `--c:${next.color}` }, h('i'), `Next: ${next.title} at ${next.start_time.slice(0, 5)}`),
+        rel === 0 && toPlace(s).length > 0 && h('p', { class: 'hero-plan' }, `${toPlace(s).length} to place · `,
+          h('button', { class: 'link', onclick: () => planDay(s) }, 'Plan now'))),
       h('div', { class: 'legend' }, counts.map(([cls, label, d, t]) =>
         h('span', { class: cls }, h('i'), h('b', {}, t ? `${d}/${t}` : '–'), label)))),
     overdueBanner(),
@@ -281,7 +283,92 @@ function unplacedPanel(s) {
       : h('p', { class: 'empty' }, 'Nothing to place. Add what you want to do, then plan it.'));
 }
 
-function planDay() {} // replaced in the Plan the day task
+// ---------- plan the day ----------
+// Earliest start on the 15-min grid, at or after `after`, where `dur` minutes fit between placed activities and end by 23:00; null if none.
+function suggestSlot(s, dur, after) {
+  const busy = placedOn(s).map(a => [toMin(a.start_time), toMin(a.end_time)]);
+  for (let m = Math.ceil(Math.max(after, START) / SNAP) * SNAP; m + dur <= END; m += SNAP)
+    if (!busy.some(([b, e]) => m < e && b < m + dur)) return m;
+  return null;
+}
+
+// Step through the day's unplaced activities in their order, giving each a time. Every Place saves at once,
+// so closing halfway keeps what's placed.
+function planDay(s) {
+  const dlg = $('#dlg'), items = toPlace(s), ends = []; // ends[i]: end minute of items[i] if placed in this session
+  let i = 0, start = 0, busy = false, out = null, prop = null;
+  const dur = () => items[i].duration ?? 60;
+  const now = () => { const n = new Date(); return n.getHours() * 60 + n.getMinutes(); };
+  const once = fn => async () => { if (busy) return; busy = true; try { await fn(); } finally { busy = false; } };
+  const span = (st, en) => `left:${pct(Math.max(st, START))};width:${(Math.min(en, END) - Math.max(st, START)) / (END - START) * 100}%`;
+  const move = delta => {
+    start = Math.min(Math.max(start + delta, START), END - dur());
+    out.textContent = `${toTime(start)} – ${toTime(start + dur())}`;
+    prop.style.left = pct(start);
+  };
+  const place = once(async () => {
+    await save(sb.from('activities').update({ start_time: toTime(start), end_time: toTime(start + dur()) }).eq('id', items[i].id));
+    ends[i] = start + dur();
+    i++;
+    show();
+  });
+  const skip = once(async () => { ends[i++] = undefined; show(); });
+  const back = once(async () => {
+    i--;
+    if (ends[i] !== undefined) {
+      ends[i] = undefined;
+      await save(sb.from('activities').update({ start_time: null, end_time: null }).eq('id', items[i].id));
+    }
+    show();
+  });
+
+  function show() {
+    if (i >= items.length) return finish();
+    const a = items[i], d = dur();
+    const after = Math.max(START, s === today() ? now() : 0, ...ends.slice(0, i).filter(e => e !== undefined));
+    const fit = suggestSlot(s, d, after);
+    start = fit ?? Math.max(START, Math.floor((END - d) / SNAP) * SNAP);
+    const nudge = (delta, name, label) => h('button', { type: 'button', class: 'icon', title: label, 'aria-label': label, onclick: () => move(delta) }, icon(name));
+    out = h('output', { 'aria-live': 'polite' }, `${toTime(start)} – ${toTime(start + d)}`);
+    prop = h('i', { class: 'proposed', style: `${span(start, start + d)};--c:${a.color}` });
+    dlg.replaceChildren(h('div', { class: 'plan' },
+      h('div', { class: 'plan-head' }, h('h3', {}, `Plan ${fmt(s, { weekday: 'long' })}`), h('span', { class: 'muted' }, `${i + 1} of ${items.length}`)),
+      h('p', { class: 'plan-title', style: `--c:${a.color}` }, h('i'), h('b', {}, a.title), h('span', { class: 'muted' }, fmtDur(d))),
+      h('div', { class: 'plan-time' }, nudge(-SNAP, 'left', '15 minutes earlier'), out, nudge(SNAP, 'right', '15 minutes later')),
+      fit == null && h('p', { class: 'plan-note' }, 'Nothing free before 23:00. Nudge it into place or skip.'),
+      h('div', { class: 'plan-strip', 'aria-hidden': 'true' },
+        placedOn(s).filter(b => toMin(b.end_time) > START && toMin(b.start_time) < END)
+          .map(b => h('i', { style: `${span(toMin(b.start_time), toMin(b.end_time))};--c:${b.color}` })),
+        prop,
+        [12, 15, 18, 21].map(hr => h('span', { style: `left:${pct(hr * 60)}` }, hr))),
+      h('div', { class: 'dialog-actions' },
+        i > 0 && h('button', { type: 'button', class: 'ghost', onclick: back }, 'Back'),
+        h('span', { class: 'grow' }),
+        h('button', { type: 'button', class: 'skip', onclick: skip }, 'Skip'),
+        h('button', { type: 'button', class: 'primary', onclick: place }, 'Place', icon('forward')))));
+    dlg.querySelector('.primary').focus();
+  }
+
+  function finish() {
+    const n = ends.filter(e => e !== undefined).length, left = items.length - n;
+    out = null;
+    dlg.replaceChildren(h('div', { class: 'plan plan-done' },
+      h('h3', {}, 'Day planned'),
+      h('p', { class: 'muted' }, `${n} placed${left ? `, ${left} still to place` : ''}.`),
+      h('div', { class: 'dialog-actions' }, h('span', { class: 'grow' }),
+        h('button', { type: 'button', class: 'primary', onclick: () => dlg.close() }, 'Done'))));
+    dlg.querySelector('.primary').focus();
+  }
+
+  dlg.onkeydown = e => {
+    if (!out) return;
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); move(e.key === 'ArrowLeft' ? -SNAP : SNAP); }
+    if (e.key === 'Enter' && !e.target.matches('.ghost, .skip')) { e.preventDefault(); place(); }
+  };
+  dlg.addEventListener('close', () => { dlg.onkeydown = null; }, { once: true });
+  show();
+  dlg.showModal();
+}
 
 function editTask(t) {
   dialog(t.period_id ? 'Goal' : 'Task', [

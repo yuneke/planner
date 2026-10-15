@@ -105,5 +105,43 @@ try {
   ok(!f.start && !f.querySelector('[name=rep]') && f.duration, 'unplaced edit: duration, no times or repeat');
   f.duration.value = '30'; f.requestSubmit(); await sleep(100);
   ok(db.activities.find(a => a.title === 'Room 101').duration === 30 && !document.querySelector('#dlg').open, 'unplaced edit saves');
+
+  // ---- plan the day (on empty future days, so suggestions don't depend on the clock) ----
+  const isoOf = x => `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`;
+  const dayPlus = n => { const x = new Date(d); x.setDate(d.getDate() + n); return isoOf(x); };
+  const fixture = (id, title, date, st, en, duration) => ({ id, title, color: '#888888', start_time: st, end_time: en, duration, position: 0, date, repeat_days: null, repeat_until: null, skip_dates: [] });
+  const dlg = document.querySelector('#dlg'), time = () => dlg.querySelector('output')?.textContent;
+  const dlgBtn = t => [...dlg.querySelectorAll('button')].find(b => b.textContent === t);
+  btn('Current').click(); await sleep(20);
+  ok(document.querySelector('.hero-plan')?.textContent.includes('to place'), 'hero nudge on today');
+  document.querySelector('.hero-plan button').click(); await sleep(20);
+  ok(dlg.open && dlg.textContent.includes('Plan '), 'Plan now opens the planner');
+  dlg.close();
+  db.activities.push(fixture('busy', 'Busy', dayPlus(1), '09:30:00', '10:00:00', null));
+  document.querySelector('#next').click(); document.dispatchEvent(new Event('visibilitychange')); await sleep(100);
+  for (const x of ['Run 1h', 'Study 2h', 'Call 30m']) await quick(x);
+  btn('Plan the day').click(); await sleep(20);
+  ok(dlg.open && dlg.textContent.includes('1 of 3') && time() === '10:00 – 11:00', 'suggests first free slot after busy block: ' + time());
+  dlgBtn('Place').click(); dlgBtn('Place')?.click(); await sleep(200);
+  ok(db.activities.find(a => a.title === 'Run').start_time === '10:00', 'Place saves the time');
+  ok(dlg.textContent.includes('2 of 3') && time() === '11:00 – 13:00', 'double Place places once; next slot follows: ' + time());
+  dlg.querySelector('[aria-label="15 minutes later"]').click();
+  ok(time() === '11:15 – 13:15', 'nudge later');
+  dlg.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
+  ok(time() === '11:00 – 13:00', 'arrow key nudges');
+  dlgBtn('Back').click(); await sleep(200);
+  ok(db.activities.find(a => a.title === 'Run').start_time == null && dlg.textContent.includes('1 of 3'), 'Back unplaces the previous one');
+  dlgBtn('Place').click(); await sleep(200);
+  dlgBtn('Skip').click(); await sleep(50);
+  ok(dlg.textContent.includes('3 of 3') && time() === '11:00 – 11:30', 'Skip moves on: ' + time());
+  dlgBtn('Place').click(); await sleep(200);
+  ok(dlg.textContent.includes('Day planned') && dlg.textContent.includes('2 placed, 1 still to place'), 'done screen: ' + dlg.textContent);
+  dlgBtn('Done').click(); await sleep(20);
+  ok(titles().includes('Run') && titles().includes('Call') && !titles().includes('Study'), 'placed blocks on the timeline: ' + titles());
+  db.activities.push(fixture('full', 'Exams', dayPlus(2), '09:00:00', '23:00:00', null), { ...fixture('nap', 'Nap', dayPlus(2), null, null, 120), position: 1 });
+  document.querySelector('#next').click(); document.dispatchEvent(new Event('visibilitychange')); await sleep(100);
+  btn('Plan the day').click(); await sleep(20);
+  ok(dlg.textContent.includes('Nothing free before 23:00') && time() === '21:00 – 23:00', 'full day: note + latest slot: ' + time());
+  dlg.close();
 } catch (e) { out.push('ERROR ' + e.stack); }
 document.querySelector('#out').textContent = 'RESULTS\n' + out.join('\n');
