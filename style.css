@@ -62,6 +62,7 @@ input::placeholder { color: var(--muted); }
 input[type=date], input[type=time] { color-scheme: dark; }
 input[type=color] { padding: 3px; width: 48px; height: 40px; cursor: pointer; }
 
+* { touch-action: manipulation; } /* no double-tap zoom on phones */
 input[type=checkbox], input[type=radio] {
   appearance: none; flex: none; width: 24px; height: 24px; min-height: 0; margin: 0; padding: 0;
   border-radius: 50%; border: 2px solid var(--tasks); background: transparent;
@@ -134,8 +135,8 @@ header { flex: none; }
   .nav { flex-wrap: wrap; }
   .hero { flex-wrap: wrap; gap: 10px 16px; }
   .rings { width: 76px; height: 76px; }
-  .hour:nth-child(2n) { display: none; } /* label every other hour when the day is squeezed */
-  .block { font-size: 12px; }
+  .timeline { --hour: 64px; }
+  .fill { min-height: 65dvh; }
   .hero .legend { margin-left: 0; flex-basis: 100%; }
   .hero .legend span { padding: 4px 10px 4px 8px; }
   h1#title { font-size: 22px; order: -1; flex-basis: 100%; margin: 2px 0 4px; }
@@ -195,30 +196,36 @@ ul.tasks { list-style: none; margin: 4px 0 12px; padding: 0; }
 .late li button { min-height: 32px; padding: 4px 10px; }
 .late-act .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--c); flex: none; }
 
-/* ---------- timeline (1px per minute) ---------- */
-.timeline { display: grid; grid-template-columns: 46px repeat(var(--n), minmax(0, 1fr)); flex: 1; min-height: 0; margin: 10px 0 4px; }
+/* ---------- timeline: stretches to fit, scrolls once an hour would be under --hour ---------- */
+.timeline { display: grid; grid-template-columns: 46px repeat(var(--n), minmax(0, 1fr)); flex: 1; min-height: 0; margin: 2px 0 0; padding-block: 8px 4px; overflow-y: auto; scrollbar-gutter: stable; }
+.timeline > * { min-height: calc(14 * var(--hour, 44px)); }
 .hours { position: relative; }
 .hour { position: absolute; right: 8px; font-size: 11px; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; transform: translateY(-50%); }
 .col { position: relative; border-left: 1px solid var(--line); background: repeating-linear-gradient(to bottom, var(--line) 0 1px, transparent 1px calc(100% / 14)); user-select: none; cursor: crosshair; }
+/* Content adapts to the block's own size: tall = name (wrapping) over time; one line = name, time beside it
+   only if it fits (else it wraps out of sight); tiny = colour only, name in the tooltip. */
 .block {
-  position: absolute; padding: 6px 8px; border-radius: 10px; background: var(--c); color: var(--on);
+  position: absolute; border-radius: 10px; background: var(--c); color: var(--on);
   border: 2px solid var(--surface); overflow: hidden; font-size: 13px; line-height: 1.25; cursor: pointer;
-  display: flex; gap: 8px; align-items: flex-start; transition: filter .15s, opacity .3s; min-height: 16px;
-  container-type: size;
+  transition: filter .15s, opacity .3s; min-height: 16px; container-type: size;
 }
+.block .in { display: flex; gap: 8px; align-items: flex-start; padding: 5px 8px; }
 .block:hover { filter: brightness(1.08); }
-.block b, .block small { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.block b { font-weight: 700; }
-.block small { font-weight: 500; font-variant-numeric: tabular-nums; }
+.block .grow { min-width: 0; }
+.block b { display: block; font-weight: 700; overflow-wrap: anywhere; }
+.block small { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; font-variant-numeric: tabular-nums; }
 @container (max-width: 80px) {
-  .block input[type=checkbox] { display: none; }
-  .block small { display: none; }
+  .block .in { padding-inline: 5px; }
+  .block .in input[type=checkbox], .block small { display: none; }
 }
-/* short blocks keep just the title */
 @container (max-height: 36px) {
-  .block { padding-block: 2px; }
-  .block small { display: none; }
-  .block input[type=checkbox] { width: 14px; height: 14px; }
+  .block .in { height: 100%; align-items: center; gap: 6px; padding-block: 0; font-size: 12px; }
+  .block .grow { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 6px; height: 1.25em; overflow: hidden; }
+  .block b, .block small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .block .in input[type=checkbox] { width: 14px; height: 14px; }
+}
+@container (max-height: 14px) {
+  .block .in { display: none; }
 }
 .block input[type=checkbox] { width: 18px; height: 18px; border-color: var(--on); }
 .block input[type=checkbox]:checked { background: var(--on); }
@@ -261,6 +268,7 @@ ul.floating { margin: 0; }
 .plan-title i { width: 14px; height: 14px; border-radius: 50%; background: var(--c); flex: none; }
 .plan-title b { font-weight: inherit; min-width: 0; overflow-wrap: anywhere; }
 .plan-title .muted { font: 600 15px/1.4 system-ui, sans-serif; letter-spacing: 0; flex: none; }
+.plan-time, .plan > .plan-strip { touch-action: pan-y; user-select: none; -webkit-user-select: none; cursor: ew-resize; } /* horizontal swipes nudge the time */
 .plan-time { display: flex; align-items: center; justify-content: space-between; background: var(--ground); border-radius: 14px; padding: 6px; }
 .plan-time output { font-family: var(--display); font-size: 24px; font-weight: 800; font-variant-numeric: tabular-nums; }
 .plan-time button.icon { width: 44px; min-height: 44px; }
@@ -275,6 +283,7 @@ ul.floating { margin: 0; }
 .week { overflow-x: auto; }
 .week .timeline { margin-top: 0; }
 .week-head, .week .timeline { min-width: 780px; }
+.week-head { overflow: hidden; scrollbar-gutter: stable; } /* match the timeline's scrollbar so columns line up */
 .week-head { display: grid; grid-template-columns: 46px repeat(7, minmax(0, 1fr)); }
 .dayhead { background: transparent; flex-direction: column; gap: 0; padding: 6px 4px 8px; border-radius: 12px; }
 .dayhead b { font-family: var(--display); font-size: 15px; }
@@ -324,6 +333,7 @@ ul.floating { margin: 0; }
 dialog { border: 0; border-radius: 22px; background: var(--surface); color: var(--text); width: min(460px, calc(100vw - 24px)); padding: 22px; box-shadow: 0 30px 80px -20px rgb(0 0 0 / .9); }
 dialog[open] { animation: dlg-in .3s var(--ease); }
 @keyframes dlg-in { from { opacity: 0; transform: translateY(12px) scale(.98); } }
+dialog::backdrop { touch-action: manipulation; }
 dialog::backdrop { background: rgb(5 6 9 / .7); backdrop-filter: blur(3px); }
 dialog form { display: flex; flex-direction: column; gap: 14px; }
 dialog h3 { font-family: var(--display); font-weight: 800; font-size: 22px; letter-spacing: -.01em; margin: 0 0 2px; }

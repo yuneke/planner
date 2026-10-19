@@ -152,6 +152,16 @@ function render() {
     : fmt(S.cursor, { month: 'long', year: 'numeric' });
   $('#main').replaceChildren(...{ day: dayView, week: weekView, month: monthView }[S.view]().filter(Boolean));
   $('#lists').replaceChildren(...listsView());
+  // Re-renders keep the timeline's scroll; opening another day/week scrolls to its data-at.
+  const tl = $('#main .timeline');
+  if (tl) {
+    if (S.tlKey !== S.view + S.cursor) {
+      const col = tl.querySelector('.col'), r = col.getBoundingClientRect();
+      S.tlKey = S.view + S.cursor;
+      S.tlTop = r.top - tl.getBoundingClientRect().top + (tl.dataset.at - START) / (END - START) * r.height - tl.clientHeight / 3;
+    }
+    tl.scrollTop = S.tlTop;
+  }
   if (S.focus) { document.querySelector(`[data-k="${S.focus}"]`)?.focus(); S.focus = null; }
 }
 
@@ -322,6 +332,18 @@ function planDay(s) {
     out.textContent = `${toTime(start)} – ${toTime(start + dur())}`;
     prop.style.left = pct(start);
   };
+  // Swipe left/right on el to nudge; one 15-min step per step() pixels dragged.
+  const swipe = (el, step) => {
+    let x = null;
+    el.addEventListener('pointerdown', e => { if (!e.target.closest('button')) { x = e.clientX; el.setPointerCapture(e.pointerId); } });
+    el.addEventListener('pointermove', e => {
+      const n = x == null ? 0 : Math.trunc((e.clientX - x) / step());
+      if (n) { move(n * SNAP); x += n * step(); }
+    });
+    el.addEventListener('pointerup', () => { x = null; });
+    el.addEventListener('pointercancel', () => { x = null; });
+    return el;
+  };
   const place = once(async () => {
     if (await save(sb.from('activities').update({ start_time: toTime(start), end_time: toTime(start + dur()) }).eq('id', items[i].id))) return;
     ends[i] = start + dur();
@@ -354,9 +376,9 @@ function planDay(s) {
     dlg.replaceChildren(h('div', { class: 'plan' },
       h('div', { class: 'plan-head' }, h('h3', {}, `Plan ${fmt(s, { weekday: 'long' })}`), h('span', { class: 'muted' }, `${i + 1} of ${items.length}`)),
       h('p', { class: 'plan-title', style: `--c:${a.color}` }, h('i'), h('b', {}, a.title), h('span', { class: 'muted' }, fmtDur(d))),
-      h('div', { class: 'plan-time' }, nudge(-SNAP, 'left', '15 minutes earlier'), out, nudge(SNAP, 'right', '15 minutes later')),
+      swipe(h('div', { class: 'plan-time' }, nudge(-SNAP, 'left', '15 minutes earlier'), out, nudge(SNAP, 'right', '15 minutes later')), () => 20),
       fit == null && h('p', { class: 'plan-note' }, 'Nothing free before 23:00. Nudge it into place or skip.'),
-      strip(prop),
+      swipe(strip(prop), () => dlg.querySelector('.plan-strip').offsetWidth * SNAP / (END - START)),
       h('div', { class: 'dialog-actions' },
         i > 0 && h('button', { type: 'button', class: 'ghost', onclick: back }, 'Back'),
         h('span', { class: 'grow' }),
@@ -400,7 +422,11 @@ function editTask(t) {
 function timeline(dates) {
   const hours = [];
   for (let m = START; m < END; m += 60) hours.push(h('div', { class: 'hour', style: `top:${pct(m)}` }, toTime(m)));
-  return h('div', { class: 'timeline', style: `--n:${dates.length}` }, h('div', { class: 'hours' }, hours), dates.map(column));
+  // Where to scroll on open: now if today is shown, else the first activity.
+  const now = new Date(), starts = dates.flatMap(s => placedOn(s).map(a => toMin(a.start_time)));
+  const at = dates.includes(today()) ? now.getHours() * 60 + now.getMinutes() : starts.length ? Math.min(...starts) : START;
+  return h('div', { class: 'timeline', style: `--n:${dates.length}`, 'data-at': at, onscroll: e => { S.tlTop = e.target.scrollTop; } },
+    h('div', { class: 'hours' }, hours), dates.map(column));
 }
 
 // Overlapping activities sit side by side in lanes; each group of overlaps gets its own lane count.
@@ -433,12 +459,13 @@ function column(s) {
       return h('div', {
         class: 'block' + (done ? ' done' : '') + (a === next ? ' next' : ''),
         style: `top:${pct(top)};height:${(bot - top) / (END - START) * 100}%;left:${l / n * 100}%;width:${100 / n}%;--c:${a.color};--on:${onColor(a.color)}`,
+        title: a.title,
         onclick: e => { e.stopPropagation(); editActivity(a, s); },
-      },
+      }, h('div', { class: 'in' },
         h('input', { type: 'checkbox', checked: done, title: 'Done', 'aria-label': `Done: ${a.title}`, onclick: e => e.stopPropagation(), onchange: () => toggleDone(a, s) }),
         h('div', { class: 'grow' },
           h('b', {}, a.title),
-          h('small', {}, `${a.start_time.slice(0, 5)}–${a.end_time.slice(0, 5)}`)));
+          h('small', {}, `${a.start_time.slice(0, 5)}–${a.end_time.slice(0, 5)}`))));
     }));
   if (s === today()) {
     const now = new Date(), m = now.getHours() * 60 + now.getMinutes();
